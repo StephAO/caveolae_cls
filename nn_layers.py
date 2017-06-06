@@ -1,49 +1,51 @@
-# Copyright (c) 2017, Oren Kraus All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without modification,
-# are permitted provided that the following conditions are met:
-#
-# 1. Redistributions of source code must retain the above copyright notice, this
-# list of conditions and the following disclaimer.
-#
-# 2. Redistributions in binary form must reproduce the above copyright notice,
-# this list of conditions and the following disclaimer in the documentation and/or
-# other materials provided with the distribution.
-#
-# 3. Neither the name of the copyright holder nor the names of its contributors
-# may be used to endorse or promote products derived from this software without
-# specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
-# ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
-# ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
 import tensorflow as tf
 
 
-def weight_variable(shape):
-    """Create a weight variable with appropriate initialization."""
-    initial = tf.truncated_normal(shape, stddev=0.1)
-    return tf.Variable(initial)
+def weight_variable(name, shape, use_xavier=True, wd=None, stddev=1e-3):
+    """
+    Create an initialized weight Variable with weight decay.
+    Args:
+        name[string]: name of the variable
+        shape[list of ints]: shape of variable
+        use_xavier[bool]: whether to use xavier initializer
+    Returns:
+        Variable Tensor
+    """
+    if use_xavier:
+        initializer = tf.contrib.layers.xavier_initializer()
+    else:
+        initializer = tf.truncated_normal_initializer(stddev=stddev)
+    var = tf.get_variable(name, shape, initializer=initializer)
+    return var
 
-def bias_variable(shape, value=0.1):
-    """Create a bias variable with appropriate initialization."""
+
+def bias_variable(name, shape, value=0.1):
+    """
+    Create an initialized bias variable.
+    Args:
+        name[string]: name of the variable
+        shape[list of ints]: shape of variable
+        value[bool]: initial value of bias variable
+    Returns:
+        Variable Tensor
+    """
+    print value
+    print shape
     initial = tf.constant(value, shape=shape)
-    return tf.Variable(initial)
+    return tf.get_variable(name, initializer=initial)
+
 
 def variable_summaries(var, name):
-    """Attach a lot of summaries to a Tensor."""
-    with tf.name_scope('summaries'):
+    """
+    Attach useful summaries to a Tensor.
+    Args:
+        var[Tensor]: Variable to attach summaries about
+        name[string]: name of variable
+    """
+    with tf.variable_scope('summaries'):
         mean = tf.reduce_mean(var)
         tf.summary.scalar('mean/' + name, mean)
-        with tf.name_scope('stddev'):
+        with tf.variable_scope('stddev'):
             stddev = tf.sqrt(tf.reduce_sum(tf.square(var - mean)))
         tf.summary.scalar('sttdev/' + name, stddev)
         tf.summary.scalar('max/' + name, tf.reduce_max(var))
@@ -51,167 +53,299 @@ def variable_summaries(var, name):
         tf.summary.histogram(name, var)
 
 
-def fc_layer(input_tensor, input_dim, output_dim, layer_name, act=tf.nn.relu,is_training=True,use_batch_norm=True):
-    """Reusable code for making a simple neural net layer.
+def fc(input_tensor, input_dim, output_dim, layer_name,
+       activation_fn=tf.nn.relu, is_training=True, batch_norm=True,
+        batch_norm_decay=None):
+    """
+    Reusable code for making a simple neural net layer.
     It does a matrix multiply, bias add, and then uses relu to nonlinearize.
     It also sets up name scoping so that the resultant graph is easy to read,
     and adds a number of summary ops.
     """
     # Adding a name scope ensures logical grouping of the layers in the graph.
-    with tf.name_scope(layer_name):
-        # This Variable will hold the state of the weights for the layer
-        with tf.name_scope('weights'):
-            weights = weight_variable([input_dim, output_dim])
-            variable_summaries(weights, layer_name + '/weights')
-        with tf.name_scope('biases'):
-            biases = bias_variable([output_dim])
-            variable_summaries(biases, layer_name + '/biases')
-        with tf.name_scope('Wx_plus_b'):
-            preactivate = tf.matmul(input_tensor, weights) + biases
-            tf.summary.histogram(layer_name + '/pre_activations', preactivate)
-        if use_batch_norm:
-            with tf.name_scope('batch_norm'):
-                batch_norm = batch_norm_fc(preactivate,output_dim, phase_train=is_training,scope=layer_name+'_batch_norm')
-                tf.summary.histogram(layer_name + '/batch_norm', batch_norm)
+    with tf.variable_scope(layer_name):
+        weights = weight_variable('weights', [input_dim, output_dim])
+        biases = bias_variable('biases', [output_dim])
+        output = tf.matmul(input_tensor, weights) + biases
+        if batch_norm:
+                output = batch_norm_fc(output, is_training=is_training,
+                                       bn_decay=batch_norm_decay,
+                                       scope=layer_name+'_batch_norm')
+        if activation_fn is not None:
+                output = activation_fn(output, name='activation')
+        return output
 
-        else:
-            batch_norm = preactivate
-        if act:
-                activations = act(batch_norm, name='activation')
-        else:
-                activations = batch_norm
-        tf.summary.histogram(layer_name + '/activations', activations)
-        return activations
 
-def conv_layer(input_tensor, kernel_size_x, kernel_size_y,
-                             input_feat_maps, output_feat_maps, stride, layer_name, act=tf.nn.relu,is_training=True,use_batch_norm=True):
-    """Reusable code for making a convolutional neural net layer.
-    It does a matrix multiply, bias add, and then uses relu to nonlinearize.
-    It also sets up name scoping so that the resultant graph is easy to read,
-    and adds a number of summary ops.
+def conv2d(input_tensor, num_in_feat_maps, num_out_feat_maps, kernel_size,
+           layer_name, stride=[1, 1], padding='SAME', use_xavier=True,
+           stddev=1e-3, activation_fn=tf.nn.relu, batch_norm=True,
+           batch_norm_decay=None, is_training=None):
     """
-    # Adding a name scope ensures logical grouping of the layers in the graph.
-    with tf.name_scope(layer_name):
-        # This Variable will hold the state of the weights for the layer
-        with tf.name_scope('weights'):
-            weights = weight_variable([kernel_size_x,kernel_size_y,input_feat_maps,output_feat_maps])
-            variable_summaries(weights, layer_name + '/weights')
-        with tf.name_scope('biases'):
-            biases = bias_variable([output_feat_maps])
-            variable_summaries(biases, layer_name + '/biases')
-        with tf.name_scope('Wx_plus_b'):
-            preactivate = tf.nn.conv2d(input_tensor,weights,
-                                       strides=[1,stride,stride,1],padding='SAME') + biases
-            tf.summary.histogram(layer_name + '/pre_activations', preactivate)
-        if use_batch_norm:
-            with tf.name_scope('batch_norm'):
-                batch_norm = batch_norm_conv(preactivate, output_feat_maps, phase_train=is_training,scope=layer_name+'_batch_norm')
-                tf.summary.histogram(layer_name + '/batch_norm', batch_norm)
-        else:
-            batch_norm = preactivate
-        if act:
-                activations = act(batch_norm, name='activation')
-        else:
-                activations = batch_norm
-        tf.summary.histogram(layer_name + '/activations', activations)
-        return activations
-
-def pool_layer(input_tensor, k, layer_name):
-    with tf.name_scope(layer_name):
-        pooled_activations = tf.nn.max_pool(input_tensor, ksize=[1,k,k,1], strides=[1,k,k,1], padding = 'SAME')
-        tf.summary.histogram(layer_name + '/activations', pooled_activations)
-    return pooled_activations
-
-
-def batch_norm_conv(x, n_out, phase_train, scope='bn'):
-    """
-    Batch normalization on convolutional maps.
+    2D convolution with non-linear operation.
     Args:
-        x:           Tensor, 4D BHWD input maps
-        n_out:       integer, depth of input maps
-        phase_train: boolean tf.Varialbe, true indicates training phase
-        scope:       string, variable scope
-    Return:
-        normed:      batch-normalized maps
+        input_tensor: 4-D tensor variable BxHxWxC
+        num_in_feat_maps: int
+        num_out_feat_maps: int
+        kernel_size: a list of 2 ints
+        layer_name: string used to scope variables in layer
+        stride: a list of 2 ints
+        padding: 'SAME' or 'VALID'
+        use_xavier: bool, use xavier_initializer if true
+        stddev: float, stddev for truncated_normal init
+        activation_fn: function
+        batch_norm: bool, whether to use batch norm
+        batch_norm_decay: float or float tensor variable in [0,1]
+        is_training: bool Tensor variable
+
+    Returns:
+        Variable tensor
     """
-    with tf.variable_scope(scope):
-        beta = tf.Variable(tf.constant(0.0, shape=[n_out]),
-                           name='beta', trainable=True)
-        gamma = tf.Variable(tf.constant(1.0, shape=[n_out]),
-                            name='gamma', trainable=True)
-        batch_mean, batch_var = tf.nn.moments(x, [0,1,2], name='moments')
-        ema = tf.train.ExponentialMovingAverage(decay=0.5)
+    with tf.variable_scope(layer_name) as sc:
+        kernel_h, kernel_w = kernel_size
+        kernel_shape = [kernel_h, kernel_w, num_in_feat_maps, num_out_feat_maps]
+        weights = weight_variable('weights', shape=kernel_shape,
+                                  use_xavier=use_xavier, stddev=stddev)
+        stride_h, stride_w = stride
+        outputs = tf.nn.conv2d(input_tensor, weights,
+                               [1, stride_h, stride_w, 1],
+                               padding=padding)
+        biases = bias_variable('biases', [num_out_feat_maps], value=1e-3)
+        outputs = tf.nn.bias_add(outputs, biases)
 
-        def mean_var_with_update():
-            ema_apply_op = ema.apply([batch_mean, batch_var])
-            with tf.control_dependencies([ema_apply_op]):
-                return tf.identity(batch_mean), tf.identity(batch_var)
+        if batch_norm:
+            outputs = batch_norm_conv2d(outputs, is_training,
+                                        bn_decay=batch_norm_decay, scope='bn')
+        if activation_fn is not None:
+            outputs = activation_fn(outputs)
 
-        mean, var = tf.cond(phase_train,
-                    mean_var_with_update,
-                    lambda: (ema.average(batch_mean), ema.average(batch_var)))
-        normed = tf.nn.batch_normalization(x, mean, var, beta, gamma, 1e-3)
-    return normed
+        return outputs
 
-def batch_norm_fc(x, n_out, phase_train, scope='bn'):
-    """
-    Batch normalization on convolutional maps.
+
+def conv3d(input_tensor, num_in_feat_maps, num_out_feat_maps, kernel_size,
+           layer_name, stride=[1, 1, 1], padding='SAME', use_xavier=True,
+           stddev=1e-3, activation_fn=tf.nn.relu, batch_norm=False,
+           batch_norm_decay=None, is_training=None):
+    """ 
+    3D convolution with non-linear operation.
     Args:
-        x:           Tensor, 4D BHWD input maps
-        n_out:       integer, depth of input maps
-        phase_train: boolean tf.Varialbe, true indicates training phase
-        scope:       string, variable scope
-    Return:
-        normed:      batch-normalized maps
+        input_tensor: 5-D tensor variable BxDxHxWxC
+        num_in_feat_maps: int
+        num_out_feat_maps: int
+        kernel_size: a list of 3 ints
+        layer_name: string used to scope variables in layer
+        stride: a list of 3 ints
+        padding: 'SAME' or 'VALID'
+        use_xavier: bool, use xavier_initializer if true
+        stddev: float, stddev for truncated_normal init
+        activation_fn: function
+        batch_norm: bool, whether to use batch norm
+        batch_norm_decay: float or float tensor variable in [0,1]
+        is_training: bool Tensor variable
+
+    Returns:
+        Variable tensor
     """
-    with tf.variable_scope(scope):
-        beta = tf.Variable(tf.constant(0.0, shape=[n_out]),
-                                       name='beta', trainable=True)
-        gamma = tf.Variable(tf.constant(1.0, shape=[n_out]),
-                                        name='gamma', trainable=True)
-        batch_mean, batch_var = tf.nn.moments(x, [0], name='moments')
-        ema = tf.train.ExponentialMovingAverage(decay=0.5)
+    with tf.variable_scope(layer_name) as sc:
+        kernel_d, kernel_h, kernel_w = kernel_size
+        kernel_shape = [kernel_d, kernel_h, kernel_w,
+                        num_in_feat_maps, num_out_feat_maps]
+        kernel = weight_variable('weights', shape=kernel_shape,
+                                 use_xavier=use_xavier, stddev=stddev)
+        stride_d, stride_h, stride_w = stride
+        outputs = tf.nn.conv3d(input_tensor, kernel,
+                               [1, stride_d, stride_h, stride_w, 1],
+                               padding=padding)
+        biases = bias_variable('biases', [num_out_feat_maps],
+                               tf.constant_initializer(0.0))
+        outputs = tf.nn.bias_add(outputs, biases)
 
-        def mean_var_with_update():
-            ema_apply_op = ema.apply([batch_mean, batch_var])
-            with tf.control_dependencies([ema_apply_op]):
-                return tf.identity(batch_mean), tf.identity(batch_var)
+        if batch_norm:
+            outputs = batch_norm_conv3d(outputs, is_training,
+                                        bn_decay=batch_norm_decay, scope='bn')
 
-        mean, var = tf.cond(phase_train,
-                            mean_var_with_update,
-                            lambda: (ema.average(batch_mean), ema.average(batch_var)))
-        normed = tf.nn.batch_normalization(x, mean, var, beta, gamma, 1e-3)
-    return normed
+        if activation_fn is not None:
+            outputs = activation_fn(outputs)
+        return outputs
 
-"""
-@author: Dan Salo, Nov 2016
-Purpose: To facilitate data I/O, and model training in TensorFlow
-Classes:
-        Data
-        Model
-"""
+
+def max_pool2d(input_tensor, kernel_size, layer_name, stride=[2, 2],
+               padding='VALID'):
+    """
+    2D max pooling.
+    Args:
+        input_tensor: 4-D tensor BxHxWxC
+        kernel_size: a list of 2 ints
+        layer_name: string to scope variables
+        stride: a list of 2 ints
+        padding: string, either 'VALID' or 'SAME'
+
+    Returns:
+        Variable tensor
+    """
+    with tf.variable_scope(layer_name) as sc:
+        kernel_h, kernel_w = kernel_size
+        stride_h, stride_w = stride
+        outputs = tf.nn.max_pool(input_tensor,
+                                 ksize=[1, kernel_h, kernel_w, 1],
+                                 strides=[1, stride_h, stride_w, 1],
+                                 padding=padding,
+                                 name=sc.name)
+        return outputs
+
+
+def max_pool3d(inputs, kernel_size, layer_name, stride=[2, 2, 2],
+               padding='VALID'):
+    """
+    3D max pooling.
+    Args:
+        inputs: 5-D tensor BxDxHxWxC
+        kernel_size: a list of 3 ints
+        layer_name: string to scope variables
+        stride: a list of 3 ints
+        padding: string, either 'VALID' or 'SAME'
+
+    Returns:
+        Variable tensor
+    """
+    with tf.variable_scope(layer_name) as sc:
+        kernel_d, kernel_h, kernel_w = kernel_size
+        stride_d, stride_h, stride_w = stride
+        outputs = tf.nn.max_pool3d(inputs,
+                                   ksize=[1, kernel_d, kernel_h, kernel_w, 1],
+                                   strides=[1, stride_d, stride_h, stride_w, 1],
+                                   padding=padding,
+                                   name=sc.name)
+        return outputs
+
 
 def noisy_and(input_tensor, num_classes, layer_name="noisy_and"):
-    """ 
+    """
+    @author: Dan Salo, Nov 2016
     Multiple Instance Learning (MIL), flexible pooling function
     Args:
-        num_classes:    int, determine number of output maps
-    Return:
-        threshold:      transformed tensor
-    """
-    assert input_tensor.get_shape()[3] == num_classes  # input tensor should have map depth equal to # of classes
-    
-    with tf.variable_scope(layer_name):
-        with tf.name_scope('a', value=1.0):
-            a = bias_variable([1])
-            variable_summaries(a, layer_name + '/a')
-        with tf.name_scope('b'):
-            b = bias_variable([1, num_classes], value=0.0)
-            variable_summaries(a, layer_name + '/b')
+        input_tensor: 4-D tensor BxHxWxC
+        num_classes: int, determine number of output maps
+        layer_name: string to scope variables
 
+    Return:
+        threshold: transformed tensor
+    """
+    assert input_tensor.get_shape()[3] == num_classes
+
+    with tf.variable_scope(layer_name):
+        a = bias_variable([1])
+        b = bias_variable([1, num_classes], value=0.0)
         mean = tf.reduce_mean(input_tensor, axis=[1, 2])
-        with tf.name_scope('threshold')
-            threshold = (tf.nn.sigmoid(a * (mean - b)) - tf.nn.sigmoid(-a * b)) \
-                         / (tf.sigmoid(a * (1 - b)) - tf.sigmoid(-a * b))
-            tf.summary.histogram(layer_name + '/threshold', threshold)
+        threshold = (tf.nn.sigmoid(a * (mean - b)) - tf.nn.sigmoid(-a * b)) / \
+                    (tf.sigmoid(a * (1 - b)) - tf.sigmoid(-a * b))
     return threshold
+
+
+def batch_norm_template(inputs, is_training, scope, moments_dims, bn_decay):
+    """ 
+    Batch normalization on convolutional maps and beyond...
+    Ref.: http://stackoverflow.com/questions/33949786/how-could-i-use-batch-normalization-in-tensorflow
+
+    Args:
+        inputs:        Tensor, k-D input ... x C could be BC or BHWC or BDHWC
+        is_training:   boolean tf.Varialbe, true indicates training phase
+        scope:         string, variable scope
+        moments_dims:  a list of ints, indicating dimensions for moments calculation
+        bn_decay:      float or float tensor variable, controling moving average weight
+    Return:
+        normed:        batch-normalized maps
+    """
+    with tf.variable_scope(scope) as sc:
+        num_channels = inputs.get_shape()[-1].value
+        beta = tf.Variable(tf.constant(0.0, shape=[num_channels]),
+                           name='beta', trainable=True)
+        gamma = tf.Variable(tf.constant(1.0, shape=[num_channels]),
+                            name='gamma', trainable=True)
+        batch_mean, batch_var = tf.nn.moments(inputs, moments_dims,
+                                              name='moments')
+        decay = bn_decay if bn_decay is not None else 0.9
+        ema = tf.train.ExponentialMovingAverage(decay=decay)
+        # Operator that maintains moving averages of variables.
+        ema_apply_op = tf.cond(is_training,
+                               lambda: ema.apply([batch_mean, batch_var]),
+                               lambda: tf.no_op())
+
+        # Update moving average and return current batch's avg and var.
+        def mean_var_with_update():
+            with tf.control_dependencies([ema_apply_op]):
+                return tf.identity(batch_mean), tf.identity(batch_var)
+
+        # ema.average returns the Variable holding the average of var.
+        mean, var = tf.cond(is_training,
+                            mean_var_with_update,
+                            lambda: (
+                            ema.average(batch_mean), ema.average(batch_var)))
+        normed = tf.nn.batch_normalization(inputs, mean, var, beta, gamma, 1e-3)
+    return normed
+
+
+def batch_norm_fc(inputs, is_training, bn_decay, scope):
+    """ 
+    Batch normalization on FC data.
+    Args:
+        inputs:      Tensor, 2D BxC input
+        is_training: boolean tf.Varialbe, true indicates training phase
+        bn_decay:    float or float tensor variable, controling moving average weight
+        scope:       string, variable scope
+    Return:
+        normed:      batch-normalized maps
+    """
+    return batch_norm_template(inputs, is_training, scope, [0, ], bn_decay)
+
+
+def batch_norm_conv2d(inputs, is_training, bn_decay, scope):
+    """ 
+    Batch normalization on 2D convolutional maps.
+    Args:
+        inputs:      Tensor, 4D BHWC input maps
+        is_training: boolean tf.Varialbe, true indicates training phase
+        bn_decay:    float or float tensor variable, controling moving average weight
+        scope:       string, variable scope
+    Return:
+        normed:      batch-normalized maps
+    """
+    return batch_norm_template(inputs, is_training, scope, [0, 1, 2], bn_decay)
+
+
+def batch_norm_conv3d(inputs, is_training, bn_decay, scope):
+    """ 
+    Batch normalization on 3D convolutional maps.
+    Args:
+        inputs:      Tensor, 5D BDHWC input maps
+        is_training: boolean tf.Varialbe, true indicates training phase
+        bn_decay:    float or float tensor variable, controling moving average weight
+        scope:       string, variable scope
+    Return:
+        normed:      batch-normalized maps
+    """
+    return batch_norm_template(inputs, is_training, scope, [0, 1, 2, 3],
+                               bn_decay)
+
+
+def dropout(inputs,
+            is_training,
+            layer_name,
+            keep_prob=0.5,
+            noise_shape=None,):
+    """ 
+    Dropout layer.
+    Args:
+      inputs: tensor
+      is_training: boolean tf.Variable
+      layer_name: string
+      keep_prob: float in [0,1]
+      noise_shape: list of ints
+
+    Returns:
+      tensor variable
+    """
+    with tf.variable_scope(layer_name) as sc:
+        outputs = tf.cond(is_training,
+                          lambda: tf.nn.dropout(inputs, keep_prob, noise_shape),
+                          lambda: inputs)
+        return outputs
