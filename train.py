@@ -176,7 +176,7 @@ def train_one_epoch(sess, ops, train_writer):
     loss_sum = 0
     num_batches = 0
 
-    for data, labels in MODEL.get_batch(train_files, batch_shape, (2. / 3.))
+    for data, labels in MODEL.get_batch(train_files, batch_shape, (2. / 3.)):
         num_batches += 1
         total_positives += np.sum(labels)
         data = data[:, 0:NUM_POINT, :]  # TODO should be unecessary
