@@ -1,19 +1,19 @@
 import argparse
 import numpy as np
 import tensorflow as tf
-import socket
-import importlib
 import os
 import sys
 
-import caveolae_cls.models.pointnet.pointnet as pn
-from caveolae_cls.data_handler import DataHandler
+import caveolae_cls.pointnet.pointnet_model as pn
+import caveolae_cls.cnn.cnn_model as cnn
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--gpu', type=int, default=0,
                     help='GPU to use [default: GPU 0]')
 parser.add_argument('--model', default='pointnet',
                     help='Model name: pointnet [default: pointnet]')
+parser.add_argument('--input_type', default='pointcloud',
+                    help='Model name: pointcloud, multiview, voxels [default: pointcloud]')
 parser.add_argument('--log_dir', default='log', help='Log dir [default: log]')
 parser.add_argument('--optimizer', default='adam',
                     help='adam or momentum [default: adam]')
@@ -22,6 +22,9 @@ FLAGS = parser.parse_args()
 
 if FLAGS.model == "pointnet":
     MODEL = pn.PointNet()
+elif FLAGS.model == "cnn":
+    MODEL = cnn.CNN(FLAGS.input_type)
+
 GPU_INDEX = FLAGS.gpu
 OPTIMIZER = FLAGS.optimizer
 LOG_DIR = FLAGS.log_dir
@@ -45,10 +48,6 @@ BN_INIT_DECAY = 0.5
 BN_DECAY_DECAY_RATE = 0.5
 BN_DECAY_DECAY_STEP = float(DECAY_STEP)
 BN_DECAY_CLIP = 0.99
-
-FILES = DataHandler.get_data_file(
-    '/cs/ghassan/scratch/StephaneData/DL_Exp4/Blobs_Exp4_MAT_PC3PTRF')
-
 
 def log_string(out_str):
     LOG_FOUT.write(out_str + '\n')
@@ -92,10 +91,9 @@ def train():
             tf.summary.scalar('bn_decay', bn_decay)
 
             # Get model and loss
-            pred, end_points = MODEL.get_model(data_pl, is_training_pl,
+            pred = MODEL.get_model(data_pl, is_training_pl,
                                                bn_decay=bn_decay)
-            loss = MODEL.get_loss(pred, labels_pl, end_points=end_points,
-                                  reg_weight=0.001)
+            loss = MODEL.get_loss(pred, labels_pl)
             tf.summary.scalar('loss', loss)
 
             correct = tf.equal(tf.argmax(pred, 1), tf.to_int64(labels_pl))
@@ -125,10 +123,10 @@ def train():
 
         # Add summary writers
         # merged = tf.merge_all_summaries()
-        merged = tf.summary.merge_all()
-        train_writer = tf.summary.FileWriter(os.path.join(LOG_DIR, 'train'),
-                                             sess.graph)
-        test_writer = tf.summary.FileWriter(os.path.join(LOG_DIR, 'test'))
+        # merged = tf.summary.merge_all()
+        # train_writer = tf.summary.FileWriter(os.path.join(LOG_DIR, 'train'),
+        #                                      sess.graph)
+        # test_writer = tf.summary.FileWriter(os.path.join(LOG_DIR, 'test'))
 
         # Init variables
         init = tf.global_variables_initializer()
@@ -165,8 +163,6 @@ def train_one_epoch(sess, ops, train_writer):
     is_training = True
 
     # Force number of files to be a multiple of batch size
-    train_files = FILES[:int(0.9 * len(FILES))]
-    train_files = train_files[:len(train_files) - len(train_files) % BATCH_SIZE]
     batch_shape = [BATCH_SIZE, NUM_POINT, 3]
 
     # Shuffle train files
@@ -176,7 +172,8 @@ def train_one_epoch(sess, ops, train_writer):
     loss_sum = 0
     num_batches = 0
 
-    for data, labels in MODEL.get_batch(train_files, batch_shape, (2. / 3.)):
+    for data, labels in MODEL.get_batch(batch_shape, (2. / 3.)):
+        print num_batches
         num_batches += 1
         total_positives += np.sum(labels)
         data = data[:, 0:NUM_POINT, :]  # TODO should be unecessary
@@ -206,19 +203,15 @@ def eval_one_epoch(sess, ops, test_writer):
     total_correct_class = [0 for _ in range(NUM_CLASSES)]
 
     # Force number of files to be a multiple of batch size
-    eval_files = FILES[int(0.9 * len(FILES)):]
-    eval_files = eval_files[:len(eval_files) - len(eval_files) % BATCH_SIZE]
     batch_shape = [BATCH_SIZE, NUM_POINT, 3]
 
     # Shuffle train files
-    eval_file_idxs = np.arange(0, len(eval_files))
-    np.random.shuffle(eval_file_idxs)
 
     total_correct = 0
     total_seen = 0
     loss_sum = 0
 
-    for data, labels in MODEL.get_batch(eval_files, batch_shape, (2. / 3.)):
+    for data, labels in MODEL.get_batch(batch_shape, (2. / 3.), eval=True):
         data = data[:, 0:NUM_POINT, :]  # TODO should be unecessary
         feed_dict = {ops['pointclouds_pl']: data,
                      ops['labels_pl']: labels,

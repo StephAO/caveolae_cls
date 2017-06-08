@@ -6,6 +6,12 @@ from caveolae_cls.data_handler import DataHandler
 
 class PointNetDataHandler(DataHandler):
 
+    def __init__(self):
+        super(PointNetDataHandler, self).__init__()
+        self.files = DataHandler.get_data_file('/cs/ghassan/scratch/StephaneData/DL_Exp4/Blobs_Exp4_MAT_PC3PTRF')
+        self.train_files = self.files[:int(0.9 * len(self.files))]
+        self.eval_files = self.files[int(0.9 * len(self.files)):]
+
     def load_point_cloud(self, filename):
         """
         Load point cloud data and label given a file
@@ -68,7 +74,7 @@ class PointNetDataHandler(DataHandler):
             rotated_data[k, ...] = np.dot(shape_pc.reshape((-1, 3)), rotation_matrix)
         self.data = rotated_data
 
-    def get_batch(self, files, batch_shape, max_ratio_n):
+    def get_batch(self, batch_shape, max_ratio_n, eval=False):
         """
         Generator that will return batches
         :param files: List of data file names. Each file should contain a 1 element.
@@ -81,6 +87,11 @@ class PointNetDataHandler(DataHandler):
         self.batch_size = batch_shape[0]
         self.data = np.zeros(batch_shape)
         self.labels = np.zeros([self.batch_size])
+
+        if eval:
+            files = self.eval_files
+        else:
+            files = self.train_files
 
         random_file_idxs = np.arange(len(files))
         np.random.shuffle(random_file_idxs)

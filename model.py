@@ -20,8 +20,8 @@ class Model:
                 print e
                 exit()
 
-    def get_batch(self, files, batch_shape, max_ratio_n):
-        return self.data_handler.get_batch(files, batch_shape, max_ratio_n)
+    def get_batch(self, batch_shape, max_ratio_n, eval=False):
+        return self.data_handler.get_batch( batch_shape, max_ratio_n, eval=eval)
 
     @abstractmethod
     def get_input_placeholders(self, batch_size):
@@ -32,5 +32,5 @@ class Model:
         pass
 
     @abstractmethod
-    def get_loss(self, pred, label, **reg_kwargs):
+    def get_loss(self, pred, label):
         pass
