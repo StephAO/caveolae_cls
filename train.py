@@ -12,7 +12,7 @@ parser.add_argument('--gpu', type=int, default=0,
                     help='GPU to use [default: GPU 0]')
 parser.add_argument('--model', default='pointnet',
                     help='Model name: pointnet [default: pointnet]')
-parser.add_argument('--input_type', default='pointcloud',
+parser.add_argument('--input_type', default='projection',
                     help='Model name: pointcloud, multiview, voxels [default: pointcloud]')
 parser.add_argument('--log_dir', default='log', help='Log dir [default: log]')
 parser.add_argument('--optimizer', default='adam',
@@ -30,7 +30,6 @@ OPTIMIZER = FLAGS.optimizer
 LOG_DIR = FLAGS.log_dir
 
 BATCH_SIZE = MODEL.hp["BATCH_SIZE"]
-NUM_POINT = MODEL.hp["NUM_POINTS"]
 MAX_EPOCH = MODEL.hp["NUM_EPOCHS"]
 BASE_LEARNING_RATE = MODEL.hp["LEARNING_RATE"]
 MOMENTUM = MODEL.hp["MOMENTUM"]
@@ -80,7 +79,7 @@ def get_bn_decay(batch):
 def train():
     with tf.Graph().as_default():
         with tf.device('/gpu:' + str(GPU_INDEX)):
-            data_pl, labels_pl = MODEL.get_input_placeholders(BATCH_SIZE)
+            data_pl, labels_pl = MODEL.get_input_placeholders()
             is_training_pl = tf.placeholder(tf.bool, shape=())
 
             # Note the global_step=batch parameter to minimize.
@@ -111,7 +110,7 @@ def train():
             train_op = optimizer.minimize(loss, global_step=batch)
 
             # Add ops to save and restore all the variables.
-            saver = tf.train.Saver()
+            # saver = tf.train.Saver()
 
         # Create a session
         config = tf.ConfigProto()
@@ -162,7 +161,7 @@ def train_one_epoch(sess, ops, train_writer):
     is_training = True
 
     # Force number of files to be a multiple of batch size
-    batch_shape = [BATCH_SIZE, NUM_POINT, 3]
+    # batch_shape = [BATCH_SIZE, NUM_POINT, 3]
 
     # Shuffle train files
     total_correct = 0
@@ -171,11 +170,9 @@ def train_one_epoch(sess, ops, train_writer):
     loss_sum = 0
     num_batches = 0
 
-    for data, labels in MODEL.get_batch(batch_shape, 1):
+    for data, labels in MODEL.get_batch():
         num_batches += 1
         total_positives += np.sum(labels)
-        data = data[:, 0:NUM_POINT, :]  # TODO should be unecessary
-
         feed_dict = {ops['data_pl']: data,
                      ops['labels_pl']: labels,
                      ops['is_training_pl']: is_training, }
@@ -202,7 +199,7 @@ def eval_one_epoch(sess, ops, test_writer):
     total_correct_class = [0 for _ in range(NUM_CLASSES)]
 
     # Force number of files to be a multiple of batch size
-    batch_shape = [BATCH_SIZE, NUM_POINT, 3]
+    # batch_shape = [BATCH_SIZE, NUM_POINT, 3]
 
     # Shuffle train files
 
@@ -210,8 +207,7 @@ def eval_one_epoch(sess, ops, test_writer):
     total_seen = 0
     loss_sum = 0
 
-    for data, labels in MODEL.get_batch(batch_shape, 1, eval=True):
-        data = data[:, 0:NUM_POINT, :]  # TODO should be unecessary
+    for data, labels in MODEL.get_batch(eval=True):
         feed_dict = {ops['data_pl']: data,
                      ops['labels_pl']: labels,
                      ops['is_training_pl']: is_training}

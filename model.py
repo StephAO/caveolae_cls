@@ -20,11 +20,12 @@ class Model:
                 print e
                 exit()
 
+    @abstractmethod
     def get_batch(self, batch_shape, max_ratio_n, eval=False):
-        return self.data_handler.get_batch( batch_shape, max_ratio_n, eval=eval)
+        pass
 
     @abstractmethod
-    def get_input_placeholders(self, batch_size):
+    def get_input_placeholders(self):
         pass
 
     @abstractmethod

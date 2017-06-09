@@ -9,9 +9,14 @@ class PointNetDataHandler(DataHandler):
 
     def __init__(self):
         super(PointNetDataHandler, self).__init__()
-        self.files = DataHandler.get_data_file('/cs/ghassan/scratch/StephaneData/DL_Exp4/Blobs_Exp4_MAT_PC3PTRF')
-        self.train_files = self.files[:int(0.9 * len(self.files))]
-        self.eval_files = self.files[int(0.9 * len(self.files)):]
+        self.p_files = DataHandler.get_data_file(
+            '/staff/2/sarocaou/data/pointcloud_positive')
+        self.n_files = DataHandler.get_data_file(
+            '/staff/2/sarocaou/data/pointcloud_negative')[:len(self.p_files)]
+        self.p_train_files = self.p_files[:int(0.9 * len(self.p_files))]
+        self.p_eval_files = self.p_files[int(0.9 * len(self.p_files)):]
+        self.n_train_files = self.n_files[:int(0.9 * len(self.n_files))]
+        self.n_eval_files = self.n_files[int(0.9 * len(self.n_files)):]
 
     def load_point_cloud(self, filename):
         """
@@ -19,7 +24,7 @@ class PointNetDataHandler(DataHandler):
         """
         f = sio.loadmat(filename)
         data = f['blob'][:]
-        data -= np.mean(data)
+        data -= np.mean(data, 0)
         label = DataHandler.get_label_from_filename(filename)
         return data, label
 
@@ -75,7 +80,7 @@ class PointNetDataHandler(DataHandler):
             rotated_data[k, ...] = np.dot(shape_pc.reshape((-1, 3)), rotation_matrix)
         self.data = rotated_data
 
-    def get_batch(self, batch_shape, max_ratio_n, eval=False):
+    def get_batch(self, batch_shape, eval=False):
         """
         Generator that will return batches
         :param files: List of data file names. Each file should contain a 1 element.
@@ -90,33 +95,47 @@ class PointNetDataHandler(DataHandler):
         self.labels = np.zeros([self.batch_size])
 
         if eval:
-            files = self.eval_files
+            p_files = self.p_eval_files
+            n_files = self.n_eval_files
         else:
-            files = self.train_files
+            p_files = self.p_train_files
+            n_files = self.n_train_files
 
-        random_file_idxs = np.arange(len(files))
-        np.random.shuffle(random_file_idxs)
+        p_random_file_idxs = np.arange(len(p_files))
+        np.random.shuffle(p_random_file_idxs)
+
+        n_random_file_idxs = np.arange(len(n_files))
+        np.random.shuffle(n_random_file_idxs)
+
+        random_file_idxs = zip(p_random_file_idxs, n_random_file_idxs)
 
         i = 0
-        num_negatives = 0
+        # num_negatives = 0
         progress = 0
-        for count, idx in enumerate(random_file_idxs):
+        for count, idxs in enumerate(random_file_idxs):
             if float(count)/len(random_file_idxs) >= progress + 0.05:
                 progress += 0.05
                 print str(int(round(progress * 100))) + "%",
                 sys.stdout.flush()
                 if abs(progress - 0.95) <= 0.01:
                     print ""
-            f = files[idx]
-            d, l = self.load_point_cloud(f)
-            if l == 0:
-                if num_negatives >= int(max_ratio_n * self.batch_size):
-                    continue
-                num_negatives += 1
+            p_idx, n_idx = idxs
+            p_f = p_files[p_idx]
+            d, l = self.load_point_cloud(p_f)
+            # if l == 0:
+            #     if num_negatives >= int(max_ratio_n * self.batch_size):
+            #         continue
+            #     num_negatives += 1
             d = self.format_point_cloud(d, batch_shape[1])
             self.data[i] = d
             self.labels[i] = l
-            i += 1
+
+            n_f = n_files[n_idx]
+            d, l = self.load_point_cloud(n_f)
+            d = self.format_point_cloud(d, batch_shape[1])
+            self.data[i+1] = d
+            self.labels[i+1] = l
+            i += 2
             if i >= self.batch_size:
                 # Augment batched point clouds by rotation and jittering
                 self.rotate_point_cloud()
@@ -124,6 +143,6 @@ class PointNetDataHandler(DataHandler):
                 # Yield batch
                 yield self.data, self.labels
                 i = 0
-                num_negatives = 0
+                # num_negatives = 0
 
 

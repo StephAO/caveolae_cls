@@ -17,15 +17,15 @@ class PointNet(Model):
         self.reg_weight = 0.001
         self.output_shape = []
 
-    def get_input_placeholders(self, batch_size):
+    def get_input_placeholders(self):
         pointclouds_pl = tf.placeholder(tf.float32,
-                                        shape=(batch_size,
+                                        shape=(self.hp['BATCH_SIZE'],
                                                self.hp['NUM_POINTS'], 3))
         labels_pl = tf.placeholder(tf.float32, shape=batch_size)
         return pointclouds_pl, labels_pl
 
     def get_model(self, point_cloud, is_training, bn_decay=None):
-        """ Classification PointNet, input is BxNx3, output Bx40 """
+        """ Classification PointNet, input is BxNx3, output Bx1 """
         batch_size = point_cloud.get_shape()[0].value
         num_point = point_cloud.get_shape()[1].value
         end_points = {}
@@ -75,6 +75,12 @@ class PointNet(Model):
 
         lnet = tf.reshape(pool1, [batch_size, -1])
 
+        # TODO
+        # For mil, hypothesises on required changes:
+        # 1. increase # features
+        # 2. use conv after max pooling layer
+        # Possible issue: locality of points might be lost
+
         input_channels = lnet.get_shape()[-1].value
 
         fc1 = nn_layers.fc(lnet, input_channels, 512, batch_norm=True,
@@ -110,3 +116,8 @@ class PointNet(Model):
         tf.summary.scalar('mat loss', mat_diff_loss)
 
         return classify_loss + mat_diff_loss * self.reg_weight
+
+    def get_batch(self, eval=False):
+        return self.data_handler.get_batch([self.hp['BATCH_SIZE'],
+                                            self.hp['NUM_POINTS'], 3],
+                                           eval=eval)
