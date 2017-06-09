@@ -42,7 +42,7 @@ if not os.path.exists(LOG_DIR):
 LOG_FOUT = open(os.path.join(LOG_DIR, 'log_train.txt'), 'w')
 LOG_FOUT.write(str(FLAGS) + '\n')
 
-NUM_CLASSES = 40
+NUM_CLASSES = 2
 
 BN_INIT_DECAY = 0.5
 BN_DECAY_DECAY_RATE = 0.5
@@ -82,7 +82,6 @@ def train():
         with tf.device('/gpu:' + str(GPU_INDEX)):
             data_pl, labels_pl = MODEL.get_input_placeholders(BATCH_SIZE)
             is_training_pl = tf.placeholder(tf.bool, shape=())
-            print is_training_pl
 
             # Note the global_step=batch parameter to minimize.
             # That tells the optimizer to helpfully increment the 'batch' parameter for you every time it trains.
@@ -123,10 +122,10 @@ def train():
 
         # Add summary writers
         # merged = tf.merge_all_summaries()
-        # merged = tf.summary.merge_all()
-        # train_writer = tf.summary.FileWriter(os.path.join(LOG_DIR, 'train'),
-        #                                      sess.graph)
-        # test_writer = tf.summary.FileWriter(os.path.join(LOG_DIR, 'test'))
+        merged = tf.summary.merge_all()
+        train_writer = tf.summary.FileWriter(os.path.join(LOG_DIR, 'train'),
+                                             sess.graph)
+        test_writer = tf.summary.FileWriter(os.path.join(LOG_DIR, 'test'))
 
         # Init variables
         init = tf.global_variables_initializer()
@@ -172,8 +171,7 @@ def train_one_epoch(sess, ops, train_writer):
     loss_sum = 0
     num_batches = 0
 
-    for data, labels in MODEL.get_batch(batch_shape, (2. / 3.)):
-        print num_batches
+    for data, labels in MODEL.get_batch(batch_shape, 1):
         num_batches += 1
         total_positives += np.sum(labels)
         data = data[:, 0:NUM_POINT, :]  # TODO should be unecessary
@@ -185,7 +183,8 @@ def train_one_epoch(sess, ops, train_writer):
             [ops['merged'], ops['step'],
              ops['train_op'], ops['loss'], ops['pred']], feed_dict=feed_dict)
         train_writer.add_summary(summary, step)
-        pred_val = np.argmax(pred_val, 1)
+        pred_val = pred_val.flatten()
+        pred_val = np.rint(pred_val)
         correct = np.sum(pred_val == labels)
         total_correct += correct
         total_seen += BATCH_SIZE
@@ -211,15 +210,15 @@ def eval_one_epoch(sess, ops, test_writer):
     total_seen = 0
     loss_sum = 0
 
-    for data, labels in MODEL.get_batch(batch_shape, (2. / 3.), eval=True):
+    for data, labels in MODEL.get_batch(batch_shape, 1, eval=True):
         data = data[:, 0:NUM_POINT, :]  # TODO should be unecessary
-        feed_dict = {ops['pointclouds_pl']: data,
+        feed_dict = {ops['data_pl']: data,
                      ops['labels_pl']: labels,
                      ops['is_training_pl']: is_training}
         summary, step, loss_val, pred_val = sess.run([ops['merged'], ops['step'],
             ops['loss'], ops['pred']], feed_dict=feed_dict)
-
-        pred_val = np.argmax(pred_val, 1)
+        pred_val = pred_val.flatten()
+        pred_val = np.rint(pred_val)
         correct = np.sum(pred_val == labels)
         total_correct += correct
         total_seen += BATCH_SIZE

@@ -24,8 +24,6 @@ class CNN(Model):
 
     def get_model(self, input_pl, is_training, bn_decay=None):
 
-        print "----", is_training
-
         input_channels = input_pl.get_shape()[-1].value
         batch_size = input_pl.get_shape()[0].value
 
@@ -45,8 +43,6 @@ class CNN(Model):
         fc1 = nn_layers.fc(convnet, input_channels, 512, 'fc1', is_training=is_training)
         fc2 = nn_layers.fc(fc1, 512, 256, 'fc2', is_training=is_training)
         pred = nn_layers.fc(fc2, 256, 1, 'predicted_y', activation_fn=tf.nn.sigmoid, batch_norm=False)
-
-        print "----------------------\n\n\n\n\n++++++++++++++++++++++++++++"
 
         return pred
 

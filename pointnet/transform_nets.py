@@ -12,7 +12,6 @@ def input_transform_net(point_cloud, is_training, bn_decay=None, K=3):
 
     input_image = tf.expand_dims(point_cloud, -1)
     input_channels = input_image.get_shape()[-1].value
-    print "!!!!!--- %d ---!!!!!" % input_channels  # expected = 1
     net = nn_layers.conv2d(input_image, input_channels, 64, [1, 3],
                            padding='VALID', stride=[1, 1],
                            batch_norm=True, is_training=is_training,
@@ -30,7 +29,6 @@ def input_transform_net(point_cloud, is_training, bn_decay=None, K=3):
 
     net = tf.reshape(net, [batch_size, -1])
     input_channels = net.get_shape()[-1].value
-    print "!!!!!+++ %d +++!!!!!" % input_channels  # expected = 1
     net = nn_layers.fc(net, input_channels, 512, batch_norm=True,
                        is_training=is_training, layer_name='tfc1',
                        batch_norm_decay=bn_decay)
@@ -61,9 +59,8 @@ def feature_transform_net(inputs, is_training, bn_decay=None, K=64):
     num_point = inputs.get_shape()[1].value
 
     input_channels = inputs.get_shape()[-1].value
-    print "!!!!!___ %d ___!!!!!" % input_channels  # expected = 64
 
-    net = nn_layers.conv2d(inputs, 64, 64, [1, 1],
+    net = nn_layers.conv2d(inputs, input_channels, 64, [1, 1],
                            padding='VALID', stride=[1, 1],
                            batch_norm=True, is_training=is_training,
                            layer_name='fconv1', batch_norm_decay=bn_decay)
@@ -80,7 +77,6 @@ def feature_transform_net(inputs, is_training, bn_decay=None, K=64):
 
     net = tf.reshape(net, [batch_size, -1])
     input_channels = net.get_shape()[-1].value
-    print "!!!!!*** %d ***!!!!!" % input_channels  # expected = 1
     net = nn_layers.fc(net, input_channels, 512, batch_norm=True,
                        is_training=is_training, layer_name='tfc1',
                        batch_norm_decay=bn_decay)

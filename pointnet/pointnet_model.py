@@ -15,6 +15,7 @@ class PointNet(Model):
         self.data_handler = PointNetDataHandler()
         self.end_points = None
         self.reg_weight = 0.001
+        self.output_shape = []
 
     def get_input_placeholders(self, batch_size):
         pointclouds_pl = tf.placeholder(tf.float32,
@@ -36,7 +37,6 @@ class PointNet(Model):
         input_image = tf.expand_dims(point_cloud_transformed, -1)
 
         input_channels = input_image.get_shape()[-1].value
-        print "???--- %d ---???" % input_channels  # expected = 1
 
         conv1 = nn_layers.conv2d(input_image, input_channels, 64, [1, 3],
                                  padding='VALID', stride=[1, 1],
@@ -51,11 +51,10 @@ class PointNet(Model):
             transform = feature_transform_net(conv2, is_training, bn_decay, K=64)
         end_points['transform'] = transform
         self.end_points = end_points
-        net_transformed = tf.matmul(tf.squeeze(net), transform)
+        net_transformed = tf.matmul(tf.squeeze(conv2), transform)
         net_transformed = tf.expand_dims(net_transformed, [2])
 
         input_channels = net_transformed.get_shape()[-1].value
-        print "???--- %d ---???" % input_channels  # expected = 1
 
         conv3 = nn_layers.conv2d(net_transformed, input_channels, 64, [1, 1],
                                  padding='VALID', stride=[1, 1],

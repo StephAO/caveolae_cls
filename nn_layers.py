@@ -29,8 +29,6 @@ def bias_variable(name, shape, value=0.1):
     Returns:
         Variable Tensor
     """
-    print value
-    print shape
     initial = tf.constant(value, shape=shape)
     return tf.get_variable(name, initializer=initial)
 
@@ -236,6 +234,29 @@ def noisy_and(input_tensor, num_classes, layer_name="noisy_and"):
         a = bias_variable([1])
         b = bias_variable([1, num_classes], value=0.0)
         mean = tf.reduce_mean(input_tensor, axis=[1, 2])
+        threshold = (tf.nn.sigmoid(a * (mean - b)) - tf.nn.sigmoid(-a * b)) / \
+                    (tf.sigmoid(a * (1 - b)) - tf.sigmoid(-a * b))
+    return threshold
+
+
+def noisy_and_1d(input_tensor, num_classes, layer_name="noisy_and"):
+    """
+    @author: Dan Salo, Nov 2016
+    Multiple Instance Learning (MIL), flexible pooling function
+    Args:
+        input_tensor: 2-D tensor BxC
+        num_classes: int, determine number of output maps
+        layer_name: string to scope variables
+
+    Return:
+        threshold: transformed tensor
+    """
+    assert input_tensor.get_shape()[2] == num_classes
+
+    with tf.variable_scope(layer_name):
+        a = bias_variable([1])
+        b = bias_variable([1, num_classes], value=0.0)
+        mean = tf.reduce_mean(input_tensor, axis=[1])
         threshold = (tf.nn.sigmoid(a * (mean - b)) - tf.nn.sigmoid(-a * b)) / \
                     (tf.sigmoid(a * (1 - b)) - tf.sigmoid(-a * b))
     return threshold

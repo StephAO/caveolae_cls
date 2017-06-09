@@ -1,6 +1,7 @@
-import os
 import numpy as np
 import scipy.io as sio
+import sys
+
 from caveolae_cls.data_handler import DataHandler
 
 
@@ -98,7 +99,14 @@ class PointNetDataHandler(DataHandler):
 
         i = 0
         num_negatives = 0
-        for idx in random_file_idxs:
+        progress = 0
+        for count, idx in enumerate(random_file_idxs):
+            if float(count)/len(random_file_idxs) >= progress + 0.05:
+                progress += 0.05
+                print str(int(round(progress * 100))) + "%",
+                sys.stdout.flush()
+                if abs(progress - 0.95) <= 0.01:
+                    print ""
             f = files[idx]
             d, l = self.load_point_cloud(f)
             if l == 0:

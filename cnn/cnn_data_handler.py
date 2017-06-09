@@ -1,6 +1,7 @@
-import os
 import numpy as np
 import scipy.io as sio
+import sys
+
 from caveolae_cls.data_handler import DataHandler
 
 
@@ -44,10 +45,19 @@ class CNNDataHandler(DataHandler):
 
         random_file_idxs = np.arange(len(files))
         np.random.shuffle(random_file_idxs)
+        num_batches = int(len(random_file_idxs)) / self.batch_size
 
         i = 0
+        batch_count = 0
         num_negatives = 0
-        for idx in random_file_idxs:
+        progress = 0
+        for count, idx in enumerate(random_file_idxs):
+            if float(count) / len(random_file_idxs) >= progress + 0.05:
+                progress += 0.05
+                print str(int(progress * 100)) + "%",
+                sys.stdout.flush()
+                if progress == 0.95:
+                    print ""
             f = files[idx]
             d, l = self.load_input_data(f)
             if l == 0:
@@ -59,7 +69,8 @@ class CNNDataHandler(DataHandler):
             i += 1
             if i >= self.batch_size:
                 # Yield batch
-                yield self.data, self.labels
+                batch_count += 1
+                yield self.data, self.labels, float(batch_count)/num_batches
                 i = 0
                 num_negatives = 0
 
