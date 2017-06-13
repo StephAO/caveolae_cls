@@ -103,10 +103,10 @@ def train():
             loss = MODEL.get_loss(pred, labels_pl)
             tf.summary.scalar('loss', loss)
 
-            correct = tf.equal(tf.argmax(pred, 1), tf.to_int64(labels_pl))
-            accuracy = tf.reduce_sum(tf.cast(correct, tf.float32)) / float(
-                BATCH_SIZE)
-            tf.summary.scalar('accuracy', accuracy)
+            # correct = tf.equal(tf.argmax(pred, 1), tf.to_int64(labels_pl))
+            # accuracy = tf.reduce_sum(tf.cast(correct, tf.float32)) / float(
+            #     BATCH_SIZE)
+            # tf.summary.scalar('accuracy', accuracy)
 
             # Get training operator
             learning_rate = get_learning_rate(batch)
