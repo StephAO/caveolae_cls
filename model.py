@@ -21,7 +21,7 @@ class Model:
                 exit()
 
     @abstractmethod
-    def get_batch(self, batch_shape, max_ratio_n, eval=False):
+    def get_batch(self, eval=False, type='mixed'):
         pass
 
     @abstractmethod
@@ -29,7 +29,7 @@ class Model:
         pass
 
     @abstractmethod
-    def get_model(self, data_pl, is_training, bn_decay=None):
+    def get_model(self, data_pl, is_training, bn_decay=None, reuse=None):
         pass
 
     @abstractmethod

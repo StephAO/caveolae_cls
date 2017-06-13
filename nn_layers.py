@@ -52,8 +52,8 @@ def variable_summaries(var, name):
 
 
 def fc(input_tensor, input_dim, output_dim, layer_name,
-       activation_fn=tf.nn.relu, is_training=True, batch_norm=True,
-        batch_norm_decay=None):
+       activation_fn=tf.nn.relu, is_training=True, batch_norm=False,
+        batch_norm_decay=None, reuse=None):
     """
     Reusable code for making a simple neural net layer.
     It does a matrix multiply, bias add, and then uses relu to nonlinearize.
@@ -61,14 +61,15 @@ def fc(input_tensor, input_dim, output_dim, layer_name,
     and adds a number of summary ops.
     """
     # Adding a name scope ensures logical grouping of the layers in the graph.
-    with tf.variable_scope(layer_name):
+    with tf.variable_scope(layer_name, reuse=reuse):
         weights = weight_variable('weights', [input_dim, output_dim])
         biases = bias_variable('biases', [output_dim])
         output = tf.matmul(input_tensor, weights) + biases
         if batch_norm:
                 output = batch_norm_fc(output, is_training=is_training,
                                        bn_decay=batch_norm_decay,
-                                       scope=layer_name+'_batch_norm')
+                                       scope=layer_name+'_batch_norm',
+                                       reuse=reuse)
         if activation_fn is not None:
                 output = activation_fn(output, name='activation')
         return output
@@ -76,8 +77,8 @@ def fc(input_tensor, input_dim, output_dim, layer_name,
 
 def conv2d(input_tensor, num_in_feat_maps, num_out_feat_maps, kernel_size,
            layer_name, stride=[1, 1], padding='SAME', use_xavier=True,
-           stddev=1e-3, activation_fn=tf.nn.relu, batch_norm=True,
-           batch_norm_decay=None, is_training=None):
+           stddev=1e-3, activation_fn=tf.nn.relu, batch_norm=False,
+           batch_norm_decay=None, is_training=None, reuse=None):
     """
     2D convolution with non-linear operation.
     Args:
@@ -98,7 +99,7 @@ def conv2d(input_tensor, num_in_feat_maps, num_out_feat_maps, kernel_size,
     Returns:
         Variable tensor
     """
-    with tf.variable_scope(layer_name) as sc:
+    with tf.variable_scope(layer_name, reuse=reuse) as sc:
         kernel_h, kernel_w = kernel_size
         kernel_shape = [kernel_h, kernel_w, num_in_feat_maps, num_out_feat_maps]
         weights = weight_variable('weights', shape=kernel_shape,
@@ -111,7 +112,7 @@ def conv2d(input_tensor, num_in_feat_maps, num_out_feat_maps, kernel_size,
         outputs = tf.nn.bias_add(outputs, biases)
 
         if batch_norm:
-            outputs = batch_norm_conv2d(outputs, is_training,
+            outputs = batch_norm_conv2d(outputs, is_training, reuse=reuse,
                                         bn_decay=batch_norm_decay, scope='bn')
         if activation_fn is not None:
             outputs = activation_fn(outputs)
@@ -122,7 +123,7 @@ def conv2d(input_tensor, num_in_feat_maps, num_out_feat_maps, kernel_size,
 def conv3d(input_tensor, num_in_feat_maps, num_out_feat_maps, kernel_size,
            layer_name, stride=[1, 1, 1], padding='SAME', use_xavier=True,
            stddev=1e-3, activation_fn=tf.nn.relu, batch_norm=False,
-           batch_norm_decay=None, is_training=None):
+           batch_norm_decay=None, is_training=None, reuse=None):
     """ 
     3D convolution with non-linear operation.
     Args:
@@ -143,7 +144,7 @@ def conv3d(input_tensor, num_in_feat_maps, num_out_feat_maps, kernel_size,
     Returns:
         Variable tensor
     """
-    with tf.variable_scope(layer_name) as sc:
+    with tf.variable_scope(layer_name, reuse=reuse) as sc:
         kernel_d, kernel_h, kernel_w = kernel_size
         kernel_shape = [kernel_d, kernel_h, kernel_w,
                         num_in_feat_maps, num_out_feat_maps]
@@ -158,7 +159,7 @@ def conv3d(input_tensor, num_in_feat_maps, num_out_feat_maps, kernel_size,
         outputs = tf.nn.bias_add(outputs, biases)
 
         if batch_norm:
-            outputs = batch_norm_conv3d(outputs, is_training,
+            outputs = batch_norm_conv3d(outputs, is_training, reuse=reuse,
                                         bn_decay=batch_norm_decay, scope='bn')
 
         if activation_fn is not None:
@@ -167,7 +168,7 @@ def conv3d(input_tensor, num_in_feat_maps, num_out_feat_maps, kernel_size,
 
 
 def max_pool2d(input_tensor, kernel_size, layer_name, stride=[2, 2],
-               padding='VALID'):
+               padding='VALID', reuse=None):
     """
     2D max pooling.
     Args:
@@ -176,11 +177,12 @@ def max_pool2d(input_tensor, kernel_size, layer_name, stride=[2, 2],
         layer_name: string to scope variables
         stride: a list of 2 ints
         padding: string, either 'VALID' or 'SAME'
+        reuse: Bool, reuse variable in scope, used for mil
 
     Returns:
         Variable tensor
     """
-    with tf.variable_scope(layer_name) as sc:
+    with tf.variable_scope(layer_name, reuse=reuse) as sc:
         kernel_h, kernel_w = kernel_size
         stride_h, stride_w = stride
         outputs = tf.nn.max_pool(input_tensor,
@@ -192,7 +194,7 @@ def max_pool2d(input_tensor, kernel_size, layer_name, stride=[2, 2],
 
 
 def max_pool3d(inputs, kernel_size, layer_name, stride=[2, 2, 2],
-               padding='VALID'):
+               padding='VALID', reuse=None):
     """
     3D max pooling.
     Args:
@@ -205,7 +207,7 @@ def max_pool3d(inputs, kernel_size, layer_name, stride=[2, 2, 2],
     Returns:
         Variable tensor
     """
-    with tf.variable_scope(layer_name) as sc:
+    with tf.variable_scope(layer_name, reuse=reuse) as sc:
         kernel_d, kernel_h, kernel_w = kernel_size
         stride_d, stride_h, stride_w = stride
         outputs = tf.nn.max_pool3d(inputs,
@@ -216,7 +218,7 @@ def max_pool3d(inputs, kernel_size, layer_name, stride=[2, 2, 2],
         return outputs
 
 
-def noisy_and(input_tensor, num_classes, layer_name="noisy_and"):
+def noisy_and(input_tensor, num_classes, layer_name="noisy_and", reuse=None):
     """
     @author: Dan Salo, Nov 2016
     Multiple Instance Learning (MIL), flexible pooling function
@@ -230,7 +232,7 @@ def noisy_and(input_tensor, num_classes, layer_name="noisy_and"):
     """
     assert input_tensor.get_shape()[3] == num_classes
 
-    with tf.variable_scope(layer_name):
+    with tf.variable_scope(layer_name, reuse=reuse):
         a = bias_variable([1])
         b = bias_variable([1, num_classes], value=0.0)
         mean = tf.reduce_mean(input_tensor, axis=[1, 2])
@@ -239,7 +241,7 @@ def noisy_and(input_tensor, num_classes, layer_name="noisy_and"):
     return threshold
 
 
-def noisy_and_1d(input_tensor, num_classes, layer_name="noisy_and"):
+def noisy_and_1d(input_tensor, num_classes, layer_name="noisy_and", reuse=None):
     """
     @author: Dan Salo, Nov 2016
     Multiple Instance Learning (MIL), flexible pooling function
@@ -253,16 +255,17 @@ def noisy_and_1d(input_tensor, num_classes, layer_name="noisy_and"):
     """
     assert input_tensor.get_shape()[2] == num_classes
 
-    with tf.variable_scope(layer_name):
-        a = bias_variable([1])
-        b = bias_variable([1, num_classes], value=0.0)
+    with tf.variable_scope(layer_name, reuse=reuse):
+        a = bias_variable('a', [1])
+        b = bias_variable('b', [1, num_classes], value=0.0)
         mean = tf.reduce_mean(input_tensor, axis=[1])
         threshold = (tf.nn.sigmoid(a * (mean - b)) - tf.nn.sigmoid(-a * b)) / \
                     (tf.sigmoid(a * (1 - b)) - tf.sigmoid(-a * b))
     return threshold
 
 
-def batch_norm_template(inputs, is_training, scope, moments_dims, bn_decay):
+def batch_norm_template(inputs, is_training, scope, moments_dims, bn_decay,
+                        reuse=None):
     """ 
     Batch normalization on convolutional maps and beyond...
     Ref.: http://stackoverflow.com/questions/33949786/how-could-i-use-batch-normalization-in-tensorflow
@@ -276,16 +279,19 @@ def batch_norm_template(inputs, is_training, scope, moments_dims, bn_decay):
     Return:
         normed:        batch-normalized maps
     """
-    with tf.variable_scope(scope) as sc:
+    print "____", reuse
+    with tf.variable_scope(scope, reuse=reuse) as sc:
         num_channels = inputs.get_shape()[-1].value
-        beta = tf.Variable(tf.constant(0.0, shape=[num_channels]),
-                           name='beta', trainable=True)
-        gamma = tf.Variable(tf.constant(1.0, shape=[num_channels]),
-                            name='gamma', trainable=True)
+        beta = tf.get_variable('beta',
+                               initializer=tf.constant(0.0,
+                                                       shape=[num_channels]))
+        gamma = tf.get_variable('gamma',
+                                initializer=tf.constant(1.0,
+                                                        shape=[num_channels]))
         batch_mean, batch_var = tf.nn.moments(inputs, moments_dims,
                                               name='moments')
         decay = bn_decay if bn_decay is not None else 0.9
-        ema = tf.train.ExponentialMovingAverage(decay=decay)
+        ema = tf.train.ExponentialMovingAverage(decay=decay, name='ema')
         # Operator that maintains moving averages of variables.
         ema_apply_op = tf.cond(is_training,
                                lambda: ema.apply([batch_mean, batch_var]),
@@ -305,7 +311,7 @@ def batch_norm_template(inputs, is_training, scope, moments_dims, bn_decay):
     return normed
 
 
-def batch_norm_fc(inputs, is_training, bn_decay, scope):
+def batch_norm_fc(inputs, is_training, bn_decay, scope, reuse=None):
     """ 
     Batch normalization on FC data.
     Args:
@@ -316,10 +322,11 @@ def batch_norm_fc(inputs, is_training, bn_decay, scope):
     Return:
         normed:      batch-normalized maps
     """
-    return batch_norm_template(inputs, is_training, scope, [0, ], bn_decay)
+    return batch_norm_template(inputs, is_training, scope, [0, ], bn_decay,
+                               reuse=reuse)
 
 
-def batch_norm_conv2d(inputs, is_training, bn_decay, scope):
+def batch_norm_conv2d(inputs, is_training, bn_decay, scope, reuse=None):
     """ 
     Batch normalization on 2D convolutional maps.
     Args:
@@ -330,10 +337,11 @@ def batch_norm_conv2d(inputs, is_training, bn_decay, scope):
     Return:
         normed:      batch-normalized maps
     """
-    return batch_norm_template(inputs, is_training, scope, [0, 1, 2], bn_decay)
+    return batch_norm_template(inputs, is_training, scope, [0, 1, 2], bn_decay,
+                               reuse=reuse)
 
 
-def batch_norm_conv3d(inputs, is_training, bn_decay, scope):
+def batch_norm_conv3d(inputs, is_training, bn_decay, scope, reuse=None):
     """ 
     Batch normalization on 3D convolutional maps.
     Args:
@@ -345,7 +353,7 @@ def batch_norm_conv3d(inputs, is_training, bn_decay, scope):
         normed:      batch-normalized maps
     """
     return batch_norm_template(inputs, is_training, scope, [0, 1, 2, 3],
-                               bn_decay)
+                               bn_decay, reuse=reuse)
 
 
 def dropout(inputs,

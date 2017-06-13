@@ -6,12 +6,16 @@ import sys
 
 import caveolae_cls.pointnet.pointnet_model as pn
 import caveolae_cls.cnn.cnn_model as cnn
+import caveolae_cls.segmented_mil.segmented_mil_model as segmented_mil
+import caveolae_cls.subregion_mil.subregion_mil_model as subregion_mil
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--gpu', type=int, default=0,
                     help='GPU to use [default: GPU 0]')
 parser.add_argument('--model', default='pointnet',
                     help='Model name: pointnet [default: pointnet]')
+parser.add_argument('--mil', default='None',
+                    help='Type of MIL name: seg, sub, or None [default: None]')
 parser.add_argument('--input_type', default='projection',
                     help='Model name: pointcloud, multiview, voxels [default: pointcloud]')
 parser.add_argument('--log_dir', default='log', help='Log dir [default: log]')
@@ -24,6 +28,11 @@ if FLAGS.model == "pointnet":
     MODEL = pn.PointNet()
 elif FLAGS.model == "cnn":
     MODEL = cnn.CNN(FLAGS.input_type)
+
+if FLAGS.mil == "seg":
+    MODEL = segmented_mil.SegmentedMIL(MODEL)
+elif FLAGS.mil == "sub":
+    MODEL = subregion_mil.SubregionMIL()
 
 GPU_INDEX = FLAGS.gpu
 OPTIMIZER = FLAGS.optimizer
@@ -150,10 +159,10 @@ def train():
             eval_one_epoch(sess, ops, test_writer)
 
             # Save the variables to disk.
-            if epoch % 10 == 0:
-                save_path = saver.save(sess,
-                                       os.path.join(LOG_DIR, "model.ckpt"))
-                log_string("Model saved in file: %s" % save_path)
+            # if epoch % 10 == 0:
+            #     save_path = saver.save(sess,
+            #                            os.path.join(LOG_DIR, "model.ckpt"))
+            #     log_string("Model saved in file: %s" % save_path)
 
 
 def train_one_epoch(sess, ops, train_writer):

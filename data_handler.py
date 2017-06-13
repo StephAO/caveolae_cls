@@ -27,7 +27,7 @@ class DataHandler:
         return 0 if label == 'N' else 1
 
     @abstractmethod
-    def get_batch(self):
+    def get_batch(self, batch_shape, eval=False):
         pass
 
 

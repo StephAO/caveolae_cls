@@ -80,7 +80,7 @@ class PointNetDataHandler(DataHandler):
             rotated_data[k, ...] = np.dot(shape_pc.reshape((-1, 3)), rotation_matrix)
         self.data = rotated_data
 
-    def get_batch(self, batch_shape, eval=False):
+    def get_batch(self, batch_shape, eval=False, type='mixed'):
         """
         Generator that will return batches
         :param files: List of data file names. Each file should contain a 1 element.
