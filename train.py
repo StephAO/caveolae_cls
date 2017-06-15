@@ -1,8 +1,11 @@
 import argparse
 import numpy as np
-import tensorflow as tf
 import os
+import pickle
+import tensorflow as tf
 import sys
+from pkg_resources import resource_filename
+
 
 import caveolae_cls.pointnet.pointnet_model as pn
 import caveolae_cls.cnn.cnn_model as cnn
@@ -18,11 +21,14 @@ parser.add_argument('--mil', default='None',
                     help='Type of MIL name: seg, sub, or None [default: None]')
 parser.add_argument('--input_type', default='projection',
                     help='Model name: pointcloud, multiview, voxels [default: pointcloud]')
-parser.add_argument('--log_dir', default='log', help='Log dir [default: log]')
 parser.add_argument('--optimizer', default='adam',
                     help='adam or momentum [default: adam]')
 
 FLAGS = parser.parse_args()
+
+print FLAGS
+print vars(FLAGS)
+print type(vars(FLAGS))
 
 if FLAGS.model == "pointnet":
     MODEL = pn.PointNet()
@@ -36,7 +42,6 @@ elif FLAGS.mil == "sub":
 
 GPU_INDEX = FLAGS.gpu
 OPTIMIZER = FLAGS.optimizer
-LOG_DIR = FLAGS.log_dir
 
 BATCH_SIZE = MODEL.hp["BATCH_SIZE"]
 MAX_EPOCH = MODEL.hp["NUM_EPOCHS"]
@@ -45,11 +50,6 @@ MOMENTUM = MODEL.hp["MOMENTUM"]
 DECAY_STEP = MODEL.hp["DECAY_STEP"]
 DECAY_RATE = MODEL.hp["DECAY_RATE"]
 
-if not os.path.exists(LOG_DIR):
-    os.mkdir(LOG_DIR)
-LOG_FOUT = open(os.path.join(LOG_DIR, 'log_train.txt'), 'w')
-LOG_FOUT.write(str(FLAGS) + '\n')
-
 NUM_CLASSES = 2
 
 BN_INIT_DECAY = 0.5
@@ -57,10 +57,9 @@ BN_DECAY_DECAY_RATE = 0.5
 BN_DECAY_DECAY_STEP = float(DECAY_STEP)
 BN_DECAY_CLIP = 0.99
 
-def log_string(out_str):
-    LOG_FOUT.write(out_str + '\n')
-    LOG_FOUT.flush()
-    print(out_str)
+LOG_DIR = resource_filename('caveolae_cls', '/data')
+if not os.path.exists(LOG_DIR):
+    os.mkdir(LOG_DIR)
 
 
 def get_learning_rate(batch):
@@ -131,9 +130,9 @@ def train():
         # Add summary writers
         # merged = tf.merge_all_summaries()
         merged = tf.summary.merge_all()
-        train_writer = tf.summary.FileWriter(os.path.join(LOG_DIR, 'train'),
-                                             sess.graph)
-        test_writer = tf.summary.FileWriter(os.path.join(LOG_DIR, 'test'))
+        # train_writer = tf.summary.FileWriter(os.path.join(LOG_DIR, 'train'),
+        #                                      sess.graph)
+        # test_writer = tf.summary.FileWriter(os.path.join(LOG_DIR, 'test'))
 
         # Init variables
         init = tf.global_variables_initializer()
@@ -151,12 +150,17 @@ def train():
                'merged': merged,
                'step': batch}
 
+        metrics = {'t_loss': [], 'e_loss': [], 't_acc': [], 'e_acc': []}
+
+        print "No training eval"
+        eval_one_epoch(sess, ops, metrics)
+
         for epoch in range(MAX_EPOCH):
-            log_string('**** EPOCH %03d ****' % (epoch))
+            print '**** EPOCH %03d ****' % (epoch)
             sys.stdout.flush()
 
-            train_one_epoch(sess, ops, train_writer)
-            eval_one_epoch(sess, ops, test_writer)
+            train_one_epoch(sess, ops, metrics)
+            eval_one_epoch(sess, ops, metrics)
 
             # Save the variables to disk.
             # if epoch % 10 == 0:
@@ -164,8 +168,9 @@ def train():
             #                            os.path.join(LOG_DIR, "model.ckpt"))
             #     log_string("Model saved in file: %s" % save_path)
 
+    pickle.dump([vars(FLAGS), MODEL.hp, metrics], open("save.p", "wb"))
 
-def train_one_epoch(sess, ops, train_writer):
+def train_one_epoch(sess, ops, metrics):
     """ ops: dict mapping from string to tf ops """
     is_training = True
 
@@ -188,7 +193,7 @@ def train_one_epoch(sess, ops, train_writer):
         summary, step, _, loss_val, pred_val = sess.run(
             [ops['merged'], ops['step'],
              ops['train_op'], ops['loss'], ops['pred']], feed_dict=feed_dict)
-        train_writer.add_summary(summary, step)
+        # train_writer.add_summary(summary, step)
         pred_val = pred_val.flatten()
         pred_val = np.rint(pred_val)
         correct = np.sum(pred_val == labels)
@@ -197,11 +202,13 @@ def train_one_epoch(sess, ops, train_writer):
         loss_sum += loss_val
 
     print "Positive clusters: %d" % total_positives
-    log_string('mean loss: %f' % (loss_sum / float(num_batches)))
-    log_string('accuracy: %f' % (total_correct / float(total_seen)))
+    print 'mean loss: %f' % (loss_sum / float(num_batches))
+    metrics['t_loss'].append(loss_sum / float(num_batches))
+    print 'accuracy: %f' % (total_correct / float(total_seen))
+    metrics['t_acc'].append(total_correct / float(total_seen))
 
 
-def eval_one_epoch(sess, ops, test_writer):
+def eval_one_epoch(sess, ops, metrics):
     """ ops: dict mapping from string to tf ops """
     is_training = False
     total_seen_class = [0 for _ in range(NUM_CLASSES)]
@@ -233,13 +240,14 @@ def eval_one_epoch(sess, ops, test_writer):
             total_seen_class[l] += 1
             total_correct_class[l] += (pred_val[i] == l)
 
-    log_string('eval mean loss: %f' % (loss_sum / float(total_seen)))
-    log_string('eval accuracy: %f'% (total_correct / float(total_seen)))
-    log_string('eval avg class acc: %f' % (np.mean(np.array(total_correct_class)
+    print 'eval mean loss: %f' % (loss_sum / float(total_seen))
+    metrics['e_loss'].append(loss_sum / float(total_seen))
+    print 'eval accuracy: %f'% (total_correct / float(total_seen))
+    metrics['e_acc'].append(total_correct / float(total_seen))
+    print 'eval avg class acc: %f' % (np.mean(np.array(total_correct_class)
                                                    / np.array(total_seen_class,
-                                                              dtype=np.float))))
+                                                              dtype=np.float)))
 
 
 if __name__ == "__main__":
     train()
-    LOG_FOUT.close()

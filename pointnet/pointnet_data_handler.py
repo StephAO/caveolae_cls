@@ -25,6 +25,7 @@ class PointNetDataHandler(DataHandler):
         f = sio.loadmat(filename)
         data = f['blob'][:]
         data -= np.mean(data, 0)
+        data /= np.amax(data)
         label = DataHandler.get_label_from_filename(filename)
         return data, label
 
@@ -47,6 +48,7 @@ class PointNetDataHandler(DataHandler):
             resized_pc[len(pc):] = pc[-1]
         else:
             resized_pc = pc
+
         return resized_pc
 
     def jitter_point_cloud(self, sigma=0.01, clip=0.05):
@@ -138,8 +140,8 @@ class PointNetDataHandler(DataHandler):
             i += 2
             if i >= self.batch_size:
                 # Augment batched point clouds by rotation and jittering
-                self.rotate_point_cloud()
-                self.jitter_point_cloud()
+                # self.rotate_point_cloud()
+                # self.jitter_point_cloud()
                 # Yield batch
                 yield self.data, self.labels
                 i = 0

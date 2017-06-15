@@ -279,7 +279,6 @@ def batch_norm_template(inputs, is_training, scope, moments_dims, bn_decay,
     Return:
         normed:        batch-normalized maps
     """
-    print "____", reuse
     with tf.variable_scope(scope, reuse=reuse) as sc:
         num_channels = inputs.get_shape()[-1].value
         beta = tf.get_variable('beta',

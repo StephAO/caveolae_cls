@@ -21,7 +21,7 @@ class PointNet(Model):
         pointclouds_pl = tf.placeholder(tf.float32,
                                         shape=(self.hp['BATCH_SIZE'],
                                                self.hp['NUM_POINTS'], 3))
-        labels_pl = tf.placeholder(tf.float32, shape=batch_size)
+        labels_pl = tf.placeholder(tf.float32, shape=self.hp['BATCH_SIZE'])
         return pointclouds_pl, labels_pl
 
     def get_global_features(self, point_cloud, is_training, bn_decay=None,
@@ -122,7 +122,7 @@ class PointNet(Model):
         mat_diff_loss = tf.nn.l2_loss(mat_diff)
         tf.summary.scalar('mat loss', mat_diff_loss)
 
-        return classify_loss + mat_diff_loss * self.reg_weight
+        return classify_loss #+ mat_diff_loss * self.reg_weight
 
     def get_batch(self, eval=False, type='mixed'):
         return self.data_handler.get_batch([self.hp['BATCH_SIZE'],
