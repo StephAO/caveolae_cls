@@ -18,14 +18,14 @@ class PointNet(Model):
         self.output_shape = []
         self.is_training = tf.placeholder(tf.bool, shape=())
 
-    def get_input_placeholders(self):
+    def generate_input_placeholders(self):
         self.input_pl = tf.placeholder(tf.float32,
                                         shape=(self.hp['BATCH_SIZE'],
                                                self.hp['NUM_POINTS'], 3))
         self.label_pl = tf.placeholder(tf.float32, shape=self.hp['BATCH_SIZE'])
         return self.input_pl, self.label_pl
 
-    def get_global_features(self, input_pl=None, bn_decay=None, num_feats=4096):
+    def generate_global_features(self, input_pl=None, bn_decay=None, num_feats=4096):
         input_pl = self.input_pl if input_pl is None else input_pl
 
         batch_size = self.hp['BATCH_SIZE']
@@ -89,9 +89,9 @@ class PointNet(Model):
         # 2. use conv after max pooling layer
         # Possible issue: locality of points might be lost
 
-    def get_model(self, input_pl=None, bn_decay=None):
+    def generate_model(self, input_pl=None, bn_decay=None):
         """ Classification PointNet, input is BxNx3, output Bx1 """
-        gf = self.get_global_features(input_pl=input_pl, bn_decay=bn_decay)
+        gf = self.generate_global_features(input_pl=input_pl, bn_decay=bn_decay)
 
         input_channels = gf.get_shape()[-1].value
 
@@ -111,7 +111,7 @@ class PointNet(Model):
 
         return self.pred
 
-    def get_loss(self):
+    def generate_loss(self):
         """ pred: B*NUM_CLASSES,
             label: B, """
         loss = -(self.label * tf.log(self.pred + 1e-12) +

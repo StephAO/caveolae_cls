@@ -20,18 +20,23 @@ class Model:
                 print e
                 exit()
 
+    def generate(self, bn_decay=None):
+        self.generate_input_placeholders()
+        self.generate_model(bn_decay=bn_decay)
+        self.generate_loss()
+
     @abstractmethod
     def get_batch(self, eval=False, type='mixed'):
         pass
 
     @abstractmethod
-    def get_input_placeholders(self):
+    def generate_input_placeholders(self):
         pass
 
     @abstractmethod
-    def get_model(self, data_pl, is_training, bn_decay=None, reuse=None):
+    def generate_model(self, data_pl, is_training, bn_decay=None, reuse=None):
         pass
 
     @abstractmethod
-    def get_loss(self, pred, label):
+    def generate_loss(self, pred, label):
         pass

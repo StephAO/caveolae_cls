@@ -83,8 +83,6 @@ class Train:
     def train(self):
         with tf.Graph().as_default():
             with tf.device('/gpu:' + str(self.gpu_index)):
-                self.model.get_input_placeholders()
-
                 # Note the global_step=batch parameter to minimize.
                 # That tells the optimizer to helpfully increment the 'batch' parameter for you every time it trains.
                 batch = tf.Variable(0)
@@ -92,8 +90,7 @@ class Train:
                 tf.summary.scalar('bn_decay', bn_decay)
 
                 # Get model and loss
-                self.model.get_model(bn_decay=bn_decay)
-                self.model.get_loss()
+                self.model.generate(bn_decay=bn_decay)
                 # tf.summary.scalar('loss', loss)
 
                 # correct = tf.equal(tf.argmax(pred, 1), tf.to_int64(labels_pl))

@@ -16,19 +16,18 @@ class CNN(Model):
             self.input_shape = [self.hp['BATCH_SIZE'], 600, 600, 600]
         self.is_training = tf.placeholder(tf.bool, shape=())
 
-    def get_input_placeholders(self):
-        self.input_pl = tf.placeholder(tf.float32,
-                                        shape=(self.input_shape))
+    def generate_input_placeholders(self):
+        self.input_pl = tf.placeholder(tf.float32, shape=(self.input_shape))
         self.label_pl = tf.placeholder(tf.float32, shape=self.hp['BATCH_SIZE'])
         return self.input_pl, self.label_pl
 
-    def get_model(self, input_pl=None, bn_decay=None, reuse=None):
+    def generate_model(self, input_pl=None, bn_decay=None, reuse=None):
         input_pl = self.input_pl if input_pl is None else input_pl
 
         input_channels = input_pl.get_shape()[-1].value
         batch_size = input_pl.get_shape()[0].value
 
-        pool0 = nn_layers.max_pool2d(self.input_pl, (2, 2), 'pool0', reuse=reuse)
+        pool0 = nn_layers.max_pool2d(input_pl, (2, 2), 'pool0', reuse=reuse)
         conv1 = nn_layers.conv2d(pool0, input_channels, 16, (3, 3), 'conv_1', is_training=self.is_training, reuse=reuse)
         conv2 = nn_layers.conv2d(conv1, 16, 32, (3, 3), 'conv_2', is_training=self.is_training, reuse=reuse)
         pool1 = nn_layers.max_pool2d(conv2, (3, 3), 'pool1', reuse=reuse)
@@ -46,17 +45,13 @@ class CNN(Model):
         fc2 = nn_layers.fc(fc1, 256, 128, 'fc2', is_training=self.is_training, reuse=reuse)
         self.pred = nn_layers.fc(fc2, 128, 1, 'predicted_y', activation_fn=tf.nn.sigmoid, batch_norm=False, reuse=reuse)
 
-        return self.pred
-
-    def get_loss(self):
+    def generate_loss(self):
         """ pred: B*NUM_CLASSES,
             label: B, """
         simple_loss = -(self.label_pl * tf.log(self.pred + 1e-12) +
                  (1.0 - self.label_pl) * tf.log(1.0 - self.pred + 1e-12))
         cross_entropy = tf.reduce_sum(simple_loss, reduction_indices=[1])
         self.loss = tf.reduce_mean(cross_entropy)
-
-        return self.loss
 
     def get_batch(self, eval=False, type='mixed'):
         return self.data_handler.get_batch(self.input_shape, eval=eval,

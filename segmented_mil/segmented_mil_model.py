@@ -16,30 +16,30 @@ class SegmentedMIL(Model):
         self.input_pl_shape = None
         self.is_training = self.model.is_training
 
-    def get_input_placeholders(self):
+    def generate_input_placeholders(self):
         self.input_pl_shape = [self.hp['BATCH_SIZE']] + [self.num_instances_per_bag] + self.model.input_shape[1:]
-        print self.input_pl_shape
         self.input_pl = tf.placeholder(tf.float32, shape=self.input_pl_shape)
         self.label_pl = tf.placeholder(tf.float32, shape=[self.hp['BATCH_SIZE']])
+        self.model.generate_input_placeholders()
         return self.input_pl, self.label_pl
 
-    def get_model(self, bn_decay=None):
+    def generate_model(self, bn_decay=None):
         i_preds = [None] * self.num_instances_per_bag
         for i in xrange(self.num_instances_per_bag):
             reuse = True if i > 0 else None
-            instance = self.model.get_model(input_pl=self.input_pl[:, i, :, :, :], bn_decay=bn_decay, reuse=reuse)
+            instance = self.model.generate_model(input_pl=self.input_pl[:, i, :, :, :], bn_decay=bn_decay, reuse=reuse)
             i_preds[i] = tf.expand_dims(instance, 1)
         instances = tf.concat(i_preds, 1)
         # Aggregation
         self.pred = nn_layers.noisy_and_1d(instances, 1)
         return self.pred
 
-    def get_loss(self):
+    def generate_loss(self):
         loss = -(self.label * tf.log(self.pred + 1e-12) +
                  (1.0 - self.label) * tf.log(1.0 - self.pred + 1e-12))
         cross_entropy = tf.reduce_sum(loss, reduction_indices=[1])
         self.loss = tf.reduce_mean(cross_entropy)
-
+        self.model.generate_loss()
         return self.loss
 
     def get_batch(self, eval=False):
