@@ -14,14 +14,14 @@ def graph_metrics(metrics):
     plt.plot(epochs, metrics['v_loss'], 'b', label='validation')
     plt.plot(epochs, metrics['t_loss'], 'r', label='training')
     plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=2, mode="expand", borderaxespad=0.)
-    plt.ylim(0, 1)
+    # plt.ylim(0, 1)
     plt.ylabel('loss')
 
     plt.subplot(212)
     plt.plot(epochs, metrics['v_acc'], 'b', label='validation')
     plt.plot(epochs, metrics['t_acc'], 'r', label='training')
     plt.ylabel('accuracy (%)')
-    plt.ylim(0, 1)
+    # plt.ylim(0, 1)
     plt.xlabel('epochs')
 
     plt.show()

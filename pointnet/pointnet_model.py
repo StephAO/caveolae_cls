@@ -57,7 +57,7 @@ class PointNet(Model):
 
         input_channels = net_transformed.get_shape()[-1].value
 
-        conv3 = nn_layers.conv2d(net_transformed, input_channels, 64, [1, 1],
+        conv3 = nn_layers.conv2d(net_transformed, input_channels, 64, [1, 64],
                                  padding='VALID', stride=[1, 1],
                                  batch_norm=True, is_training=is_training,
                                  layer_name='conv3', batch_norm_decay=bn_decay)
