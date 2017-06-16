@@ -12,9 +12,9 @@ import caveolae_cls.cnn.cnn_model as cnn
 import caveolae_cls.segmented_mil.segmented_mil_model as segmented_mil
 import caveolae_cls.subregion_mil.subregion_mil_model as subregion_mil
 
-    
+
 class Train:
-    
+
     def __init__(self, FLAGS):
         self.flags = FLAGS
         # Select model
@@ -25,10 +25,10 @@ class Train:
             self.model = cnn.CNN(FLAGS.input_type)
         # Select mil
         if FLAGS.mil == "seg":
-            self.model = segmented_mil.Segmentedself.mil(self.model)
+            self.model = segmented_mil.SegmentedMIL(self.model)
             self.mil = "seg"
         elif FLAGS.mil == "sub":
-            self.model = subregion_mil.Subregionself.mil()
+            self.model = subregion_mil.SubregionMIL()
             self.mil = "sub"
         else:
             self.mil = None
@@ -49,7 +49,7 @@ class Train:
         self.bn_decay_decay_rate = 0.5
         self.bn_decay_decay_step = float(self.decay_step)
         self.bn_decay_clip = 0.99
-    
+
         self.data_dir = resource_filename('caveolae_cls', '/data')
         if not os.path.exists(self.data_dir):
             os.mkdir(self.data_dir)
@@ -67,8 +67,8 @@ class Train:
             staircase=True)
         learning_rate = tf.maximum(learning_rate, 0.00001)  # CLIP THE LEARNING RATE!
         return learning_rate
-    
-    
+
+
     def get_bn_decay(self, batch):
         bn_momentum = tf.train.exponential_decay(
             self.bn_init_decay,
@@ -78,31 +78,31 @@ class Train:
             staircase=True)
         bn_decay = tf.minimum(self.bn_decay_clip, 1 - bn_momentum)
         return bn_decay
-    
-    
+
+
     def train(self):
         with tf.Graph().as_default():
             with tf.device('/gpu:' + str(self.gpu_index)):
                 data_pl, labels_pl = self.model.get_input_placeholders()
                 is_training_pl = tf.placeholder(tf.bool, shape=())
-    
+
                 # Note the global_step=batch parameter to minimize.
                 # That tells the optimizer to helpfully increment the 'batch' parameter for you every time it trains.
                 batch = tf.Variable(0)
                 bn_decay = self.get_bn_decay(batch)
                 tf.summary.scalar('bn_decay', bn_decay)
-    
+
                 # Get model and loss
                 pred = self.model.get_model(data_pl, is_training_pl,
                                                    bn_decay=bn_decay)
                 loss = self.model.get_loss(pred, labels_pl)
                 tf.summary.scalar('loss', loss)
-    
+
                 # correct = tf.equal(tf.argmax(pred, 1), tf.to_int64(labels_pl))
                 # accuracy = tf.reduce_sum(tf.cast(correct, tf.float32)) / float(
                 #     self.batch_size)
                 # tf.summary.scalar('accuracy', accuracy)
-    
+
                 # Get training operator
                 learning_rate = self.get_learning_rate(batch)
                 tf.summary.scalar('learning_rate', learning_rate)
@@ -112,31 +112,31 @@ class Train:
                 elif self.optimizer == 'adam':
                     optimizer = tf.train.AdamOptimizer(learning_rate)
                 train_op = optimizer.minimize(loss, global_step=batch)
-    
+
                 # Add ops to save and restore all the variables.
                 # saver = tf.train.Saver()
-    
+
             # Create a session
             config = tf.ConfigProto()
             config.gpu_options.allow_growth = True
             config.allow_soft_placement = True
             config.log_device_placement = False
             sess = tf.Session(config=config)
-    
+
             # Add summary writers
             # merged = tf.merge_all_summaries()
             merged = tf.summary.merge_all()
             # train_writer = tf.summary.FileWriter(os.path.join(self.data_dir, 'train'),
             #                                      sess.graph)
             # test_writer = tf.summary.FileWriter(os.path.join(self.data_dir, 'test'))
-    
+
             # Init variables
             init = tf.global_variables_initializer()
             # To fix the bug introduced in TF 0.12.1 as in
             # http://stackoverflow.com/questions/41543774/invalidargumenterror-for-tensor-bool-tensorflow-0-12-1
             # sess.run(init)
             sess.run(init, {is_training_pl: True})
-    
+
             ops = {'data_pl': data_pl,
                    'labels_pl': labels_pl,
                    'is_training_pl': is_training_pl,
@@ -145,41 +145,41 @@ class Train:
                    'train_op': train_op,
                    'merged': merged,
                    'step': batch}
-    
+
             metrics = {'t_loss': [None], 'v_loss': [], 't_acc': [None], 'v_acc': []}
-    
+
             print "No training eval"
             self.eval_one_epoch(sess, ops, metrics)
-    
+
             for epoch in range(self.max_epoch):
                 print '**** EPOCH %03d ****' % (epoch)
                 sys.stdout.flush()
-    
+
                 self.train_one_epoch(sess, ops, metrics)
                 self.eval_one_epoch(sess, ops, metrics)
-    
+
                 # Save the variables to disk.
                 # if epoch % 10 == 0:
                 #     save_path = saver.save(sess,
                 #                            os.path.join(self.data_dir, "model.ckpt"))
                 #     log_string("Model saved in file: %s" % save_path)
-    
+
         pickle.dump([vars(self.flags), self.model.hp, metrics], open(self.data_fn, "wb"))
-    
+
     def train_one_epoch(self, sess, ops, metrics):
         """ ops: dict mapping from string to tf ops """
         is_training = True
-    
+
         # Force number of files to be a multiple of batch size
         # batch_shape = [self.batch_size, NUM_POINT, 3]
-    
+
         # Shuffle train files
         total_correct = 0
         total_seen = 0
         total_positives = 0
         loss_sum = 0
         num_batches = 0
-    
+
         for data, labels in self.model.get_batch():
             num_batches += 1
             total_positives += np.sum(labels)
@@ -196,14 +196,14 @@ class Train:
             total_correct += correct
             total_seen += self.batch_size
             loss_sum += loss_val
-    
+
         print "Positive clusters: %d" % total_positives
         print 'mean loss: %f' % (loss_sum / float(total_seen))
         metrics['t_loss'].append(loss_sum / float(total_seen))
         print 'accuracy: %f' % (total_correct / float(total_seen))
         metrics['t_acc'].append(total_correct / float(total_seen))
-    
-    
+
+
     def eval_one_epoch(self, sess, ops, metrics):
         """ ops: dict mapping from string to tf ops """
         if self.mil is not None:
@@ -212,16 +212,16 @@ class Train:
         is_training = False
         total_seen_class = [0 for _ in range(self.num_classes)]
         total_correct_class = [0 for _ in range(self.num_classes)]
-    
+
         # Force number of files to be a multiple of batch size
         # batch_shape = [self.batch_size, NUM_POINT, 3]
-    
+
         # Shuffle train files
-    
+
         total_correct = 0
         total_seen = 0
         loss_sum = 0
-    
+
         for data, labels in self.model.get_batch(eval=True):
             feed_dict = {ops['data_pl']: data,
                          ops['labels_pl']: labels,
@@ -238,7 +238,7 @@ class Train:
                 l = int(labels[i])
                 total_seen_class[l] += 1
                 total_correct_class[l] += (pred_val[i] == l)
-    
+
         print 'eval mean loss: %f' % (loss_sum / float(total_seen))
         metrics['v_loss'].append(loss_sum / float(total_seen))
         print 'eval accuracy: %f'% (total_correct / float(total_seen))
