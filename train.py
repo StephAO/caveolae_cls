@@ -201,8 +201,8 @@ def train_one_epoch(sess, ops, metrics):
         loss_sum += loss_val
 
     print "Positive clusters: %d" % total_positives
-    print 'mean loss: %f' % (loss_sum / float(num_batches))
-    metrics['t_loss'].append(loss_sum / float(num_batches))
+    print 'mean loss: %f' % (loss_sum / float(total_seen))
+    metrics['t_loss'].append(loss_sum / float(total_seen))
     print 'accuracy: %f' % (total_correct / float(total_seen))
     metrics['t_acc'].append(total_correct / float(total_seen))
 
@@ -233,7 +233,7 @@ def eval_one_epoch(sess, ops, metrics):
         correct = np.sum(pred_val == labels)
         total_correct += correct
         total_seen += BATCH_SIZE
-        loss_sum += (loss_val*BATCH_SIZE)
+        loss_sum += loss_val
         for i in range(BATCH_SIZE):
             l = int(labels[i])
             total_seen_class[l] += 1
