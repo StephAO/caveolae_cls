@@ -25,15 +25,17 @@ class PointNet(Model):
         self.label_pl = tf.placeholder(tf.float32, shape=self.hp['BATCH_SIZE'])
         return self.input_pl, self.label_pl
 
-    def get_global_features(self, bn_decay=None, num_feats=4096):
+    def get_global_features(self, input_pl=None, bn_decay=None, num_feats=4096):
+        input_pl = self.input_pl if input_pl is None else input_pl
+
         batch_size = self.hp['BATCH_SIZE']
         num_point = self.hp['NUM_POINTS']
         end_points = {}
 
         with tf.variable_scope('transform_net1') as sc:
-            transform = input_transform_net(self.input_pl, self.is_training, bn_decay,
+            transform = input_transform_net(input_pl, self.is_training, bn_decay,
                                             K=3)
-        point_cloud_transformed = tf.matmul(self.input_pl, transform)
+        point_cloud_transformed = tf.matmul(input_pl, transform)
         input_image = tf.expand_dims(point_cloud_transformed, -1)
 
         input_channels = input_image.get_shape()[-1].value
@@ -87,9 +89,9 @@ class PointNet(Model):
         # 2. use conv after max pooling layer
         # Possible issue: locality of points might be lost
 
-    def get_model(self, bn_decay=None):
+    def get_model(self, input_pl=None, bn_decay=None):
         """ Classification PointNet, input is BxNx3, output Bx1 """
-        gf = self.get_global_features(bn_decay=bn_decay)
+        gf = self.get_global_features(input_pl=input_pl, bn_decay=bn_decay)
 
         input_channels = gf.get_shape()[-1].value
 

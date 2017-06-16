@@ -17,21 +17,17 @@ class SegmentedMIL(Model):
         self.is_training = self.model.is_training
 
     def get_input_placeholders(self):
-        self.input_pl_shape = [self.hp['BATCH_SIZE']] + \
-                         [self.num_instances_per_bag] + \
-                         self.model.input_shape[1:]
+        self.input_pl_shape = [self.hp['BATCH_SIZE']] + [self.num_instances_per_bag] + self.model.input_shape[1:]
         print self.input_pl_shape
-        self.input_pl = tf.placeholder(tf.float32,
-                                  shape=self.input_pl_shape)
+        self.input_pl = tf.placeholder(tf.float32, shape=self.input_pl_shape)
         self.label_pl = tf.placeholder(tf.float32, shape=[self.hp['BATCH_SIZE']])
-        return self.input_pl, self.labels_pl
+        return self.input_pl, self.label_pl
 
     def get_model(self, bn_decay=None):
         i_preds = [None] * self.num_instances_per_bag
         for i in xrange(self.num_instances_per_bag):
             reuse = True if i > 0 else None
-            instance = self.model.get_model(self.input_pl[:, i, :, :, :], self.is_training,
-                                            bn_decay=bn_decay, reuse=reuse)
+            instance = self.model.get_model(input_pl=self.input_pl[:, i, :, :, :], bn_decay=bn_decay, reuse=reuse)
             i_preds[i] = tf.expand_dims(instance, 1)
         instances = tf.concat(i_preds, 1)
         # Aggregation
