@@ -106,7 +106,7 @@ class PointNet(Model):
         fc3 = nn_layers.fc(fc2, 256, 64, batch_norm=True, is_training=is_training,
                            layer_name='fc3', batch_norm_decay=bn_decay)
         pred = nn_layers.fc(fc3, 64, 1, activation_fn=tf.nn.sigmoid,
-                            layer_name='fc3', is_training=is_training)
+                            layer_name='pred', is_training=is_training)
 
         return pred
 
