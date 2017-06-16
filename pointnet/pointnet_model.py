@@ -23,7 +23,6 @@ class PointNet(Model):
                                         shape=(self.hp['BATCH_SIZE'],
                                                self.hp['NUM_POINTS'], 3))
         self.label_pl = tf.placeholder(tf.float32, shape=self.hp['BATCH_SIZE'])
-        return self.input_pl, self.label_pl
 
     def generate_global_features(self, input_pl=None, bn_decay=None, num_feats=4096):
         input_pl = self.input_pl if input_pl is None else input_pl
@@ -108,7 +107,6 @@ class PointNet(Model):
                            layer_name='fc3', batch_norm_decay=bn_decay)
         self.pred = nn_layers.fc(fc3, 64, 1, activation_fn=tf.nn.sigmoid,
                             layer_name='pred', is_training=self.is_training)
-
         return self.pred
 
     def generate_loss(self):
@@ -130,8 +128,6 @@ class PointNet(Model):
         tf.summary.scalar('mat loss', mat_diff_loss)
 
         self.loss = classify_loss + mat_diff_loss * self.reg_weight
-
-        return self.loss
 
     def get_batch(self, eval=False, type='mixed'):
         return self.data_handler.get_batch([self.hp['BATCH_SIZE'],

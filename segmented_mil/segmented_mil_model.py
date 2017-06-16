@@ -21,7 +21,6 @@ class SegmentedMIL(Model):
         self.input_pl = tf.placeholder(tf.float32, shape=self.input_pl_shape)
         self.label_pl = tf.placeholder(tf.float32, shape=[self.hp['BATCH_SIZE']])
         self.model.generate_input_placeholders()
-        return self.input_pl, self.label_pl
 
     def generate_model(self, bn_decay=None):
         i_preds = [None] * self.num_instances_per_bag
@@ -40,7 +39,6 @@ class SegmentedMIL(Model):
         cross_entropy = tf.reduce_sum(loss, reduction_indices=[1])
         self.loss = tf.reduce_mean(cross_entropy)
         self.model.generate_loss()
-        return self.loss
 
     def get_batch(self, eval=False):
         data = np.zeros(self.input_pl_shape)

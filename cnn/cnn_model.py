@@ -19,7 +19,6 @@ class CNN(Model):
     def generate_input_placeholders(self):
         self.input_pl = tf.placeholder(tf.float32, shape=(self.input_shape))
         self.label_pl = tf.placeholder(tf.float32, shape=self.hp['BATCH_SIZE'])
-        return self.input_pl, self.label_pl
 
     def generate_model(self, input_pl=None, bn_decay=None, reuse=None):
         input_pl = self.input_pl if input_pl is None else input_pl
@@ -44,6 +43,7 @@ class CNN(Model):
         fc1 = nn_layers.fc(convnet, input_channels, 256, 'fc1', is_training=self.is_training, reuse=reuse)
         fc2 = nn_layers.fc(fc1, 256, 128, 'fc2', is_training=self.is_training, reuse=reuse)
         self.pred = nn_layers.fc(fc2, 128, 1, 'predicted_y', activation_fn=tf.nn.sigmoid, batch_norm=False, reuse=reuse)
+        return self.pred
 
     def generate_loss(self):
         """ pred: B*NUM_CLASSES,
