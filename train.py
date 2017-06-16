@@ -28,6 +28,7 @@ FLAGS = parser.parse_args()
 
 if FLAGS.model == "pointnet":
     MODEL = pn.PointNet()
+    FLAGS.input_type = "pointcloud"
 elif FLAGS.model == "cnn":
     MODEL = cnn.CNN(FLAGS.input_type)
 

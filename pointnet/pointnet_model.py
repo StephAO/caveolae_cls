@@ -25,7 +25,7 @@ class PointNet(Model):
         return pointclouds_pl, labels_pl
 
     def get_global_features(self, point_cloud, is_training, bn_decay=None,
-                            num_feats=2048):
+                            num_feats=4096):
         batch_size = point_cloud.get_shape()[0].value
         num_point = point_cloud.get_shape()[1].value
         end_points = {}
@@ -61,17 +61,21 @@ class PointNet(Model):
                                  padding='VALID', stride=[1, 1],
                                  batch_norm=True, is_training=is_training,
                                  layer_name='conv3', batch_norm_decay=bn_decay)
-        conv4 = nn_layers.conv2d(conv3, 64, 512, [1, 1],
+        conv4 = nn_layers.conv2d(conv3, 64, 256, [1, 1],
                                  padding='VALID', stride=[1, 1],
                                  batch_norm=True, is_training=is_training,
                                  layer_name='conv4', batch_norm_decay=bn_decay)
-        conv5 = nn_layers.conv2d(conv4, 512, num_feats, [1, 1],
+        conv5 = nn_layers.conv2d(conv4, 256, 1024, [1, 1],
                                  padding='VALID', stride=[1, 1],
                                  batch_norm=True, is_training=is_training,
                                  layer_name='conv5', batch_norm_decay=bn_decay)
+        conv6 = nn_layers.conv2d(conv5, 1024, num_feats, [1, 1],
+                                 padding='VALID', stride=[1, 1],
+                                 batch_norm=True, is_training=is_training,
+                                 layer_name='conv6', batch_norm_decay=bn_decay)
 
         # Symmetric function: max pooling
-        pool1 = nn_layers.max_pool2d(conv5, [num_point, 1],
+        pool1 = nn_layers.max_pool2d(conv6, [num_point, 1],
                                      padding='VALID', layer_name='maxpool')
 
         global_feats = tf.reshape(pool1, [batch_size, -1])
@@ -90,16 +94,18 @@ class PointNet(Model):
 
         input_channels = gf.get_shape()[-1].value
 
-        fc1 = nn_layers.fc(gf, input_channels, 512, batch_norm=True,
+        fc1 = nn_layers.fc(gf, input_channels, 1024, batch_norm=True,
                            is_training=is_training, layer_name='fc1',
                            batch_norm_decay=bn_decay)
         # dp1 = nn_layers.dropout(fc1, keep_prob=0.7, is_training=is_training,
         #                         layer_name='dp1')
-        fc2 = nn_layers.fc(fc1, 512, 256, batch_norm=True, is_training=is_training,
+        fc2 = nn_layers.fc(fc1, 1024, 256, batch_norm=True, is_training=is_training,
                            layer_name='fc2', batch_norm_decay=bn_decay)
         # dp2 = nn_layers.dropout(fc2, keep_prob=0.7, is_training=is_training,
         #                         layer_name='dp2')
-        pred = nn_layers.fc(fc2, 256, 1, activation_fn=tf.nn.sigmoid,
+        fc3 = nn_layers.fc(fc2, 256, 64, batch_norm=True, is_training=is_training,
+                           layer_name='fc3', batch_norm_decay=bn_decay)
+        pred = nn_layers.fc(fc3, 64, 1, activation_fn=tf.nn.sigmoid,
                             layer_name='fc3', is_training=is_training)
 
         return pred
