@@ -38,8 +38,6 @@ class SegmentedMIL(Model):
         return bag
 
     def get_loss(self, pred, label):
-        print "------", np.shape(pred), np.shape(label)
-        print "******", pred.get_shape(), label.get_shape()
         loss = -(label * tf.log(pred + 1e-12) +
                  (1.0 - label) * tf.log(1.0 - pred + 1e-12))
         cross_entropy = tf.reduce_sum(loss, reduction_indices=[1])
