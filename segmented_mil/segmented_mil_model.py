@@ -14,36 +14,37 @@ class SegmentedMIL(Model):
         self.model.input_shape[0] = num_instance_per_bag
         self.num_instances_per_bag = num_instance_per_bag
         self.input_pl_shape = None
+        self.is_training = self.model.is_training
 
     def get_input_placeholders(self):
         self.input_pl_shape = [self.hp['BATCH_SIZE']] + \
                          [self.num_instances_per_bag] + \
                          self.model.input_shape[1:]
         print self.input_pl_shape
-        input_pl = tf.placeholder(tf.float32,
+        self.input_pl = tf.placeholder(tf.float32,
                                   shape=self.input_pl_shape)
-        labels_pl = tf.placeholder(tf.float32, shape=[self.hp['BATCH_SIZE']])
-        return input_pl, labels_pl
+        self.label_pl = tf.placeholder(tf.float32, shape=[self.hp['BATCH_SIZE']])
+        return self.input_pl, self.labels_pl
 
-    def get_model(self, input_pl, is_training, bn_decay=None):
-        preds = [None] * self.num_instances_per_bag
+    def get_model(self, bn_decay=None):
+        i_preds = [None] * self.num_instances_per_bag
         for i in xrange(self.num_instances_per_bag):
             reuse = True if i > 0 else None
-            pred = self.model.get_model(input_pl[:, i, :, :, :], is_training,
-                                        bn_decay=bn_decay, reuse=reuse)
-            preds[i] = tf.expand_dims(pred, 1)
-        instances = tf.concat(preds, 1)
+            instance = self.model.get_model(self.input_pl[:, i, :, :, :], self.is_training,
+                                            bn_decay=bn_decay, reuse=reuse)
+            i_preds[i] = tf.expand_dims(instance, 1)
+        instances = tf.concat(i_preds, 1)
         # Aggregation
-        bag = nn_layers.noisy_and_1d(instances, 1)
-        return bag
+        self.pred = nn_layers.noisy_and_1d(instances, 1)
+        return self.pred
 
-    def get_loss(self, pred, label):
-        loss = -(label * tf.log(pred + 1e-12) +
-                 (1.0 - label) * tf.log(1.0 - pred + 1e-12))
+    def get_loss(self):
+        loss = -(self.label * tf.log(self.pred + 1e-12) +
+                 (1.0 - self.label) * tf.log(1.0 - self.pred + 1e-12))
         cross_entropy = tf.reduce_sum(loss, reduction_indices=[1])
-        classify_loss = tf.reduce_mean(cross_entropy)
+        self.loss = tf.reduce_mean(cross_entropy)
 
-        return classify_loss
+        return self.loss
 
     def get_batch(self, eval=False):
         data = np.zeros(self.input_pl_shape)

@@ -16,39 +16,39 @@ class PointNet(Model):
         self.end_points = None
         self.reg_weight = 0.001
         self.output_shape = []
+        self.is_training = tf.placeholder(tf.bool, shape=())
 
     def get_input_placeholders(self):
-        pointclouds_pl = tf.placeholder(tf.float32,
+        self.input_pl = tf.placeholder(tf.float32,
                                         shape=(self.hp['BATCH_SIZE'],
                                                self.hp['NUM_POINTS'], 3))
-        labels_pl = tf.placeholder(tf.float32, shape=self.hp['BATCH_SIZE'])
-        return pointclouds_pl, labels_pl
+        self.label_pl = tf.placeholder(tf.float32, shape=self.hp['BATCH_SIZE'])
+        return self.input_pl, self.label_pl
 
-    def get_global_features(self, point_cloud, is_training, bn_decay=None,
-                            num_feats=4096):
-        batch_size = point_cloud.get_shape()[0].value
-        num_point = point_cloud.get_shape()[1].value
+    def get_global_features(self, bn_decay=None, num_feats=4096):
+        batch_size = self.hp['BATCH_SIZE']
+        num_point = self.hp['NUM_POINTS']
         end_points = {}
 
         with tf.variable_scope('transform_net1') as sc:
-            transform = input_transform_net(point_cloud, is_training, bn_decay,
+            transform = input_transform_net(self.input_pl, self.is_training, bn_decay,
                                             K=3)
-        point_cloud_transformed = tf.matmul(point_cloud, transform)
+        point_cloud_transformed = tf.matmul(self.input_pl, transform)
         input_image = tf.expand_dims(point_cloud_transformed, -1)
 
         input_channels = input_image.get_shape()[-1].value
 
         conv1 = nn_layers.conv2d(input_image, input_channels, 64, [1, 3],
                                  padding='VALID', stride=[1, 1],
-                                 batch_norm=True, is_training=is_training,
+                                 batch_norm=True, is_training=self.is_training,
                                  layer_name='conv1', batch_norm_decay=bn_decay)
         conv2 = nn_layers.conv2d(conv1, 64, 64, [1, 1],
                                  padding='VALID', stride=[1, 1],
-                                 batch_norm=True, is_training=is_training,
+                                 batch_norm=True, is_training=self.is_training,
                                  layer_name='conv2', batch_norm_decay=bn_decay)
 
         with tf.variable_scope('transform_net2') as sc:
-            transform = feature_transform_net(conv2, is_training, bn_decay,
+            transform = feature_transform_net(conv2, self.is_training, bn_decay,
                                               K=64)
         end_points['transform'] = transform
         self.end_points = end_points
@@ -59,27 +59,27 @@ class PointNet(Model):
 
         conv3 = nn_layers.conv2d(net_transformed, input_channels, 64, [1, 1],
                                  padding='VALID', stride=[1, 1],
-                                 batch_norm=True, is_training=is_training,
+                                 batch_norm=True, is_training=self.is_training,
                                  layer_name='conv3', batch_norm_decay=bn_decay)
         conv4 = nn_layers.conv2d(conv3, 64, 256, [1, 1],
                                  padding='VALID', stride=[1, 1],
-                                 batch_norm=True, is_training=is_training,
+                                 batch_norm=True, is_training=self.is_training,
                                  layer_name='conv4', batch_norm_decay=bn_decay)
         conv5 = nn_layers.conv2d(conv4, 256, 1024, [1, 1],
                                  padding='VALID', stride=[1, 1],
-                                 batch_norm=True, is_training=is_training,
+                                 batch_norm=True, is_training=self.is_training,
                                  layer_name='conv5', batch_norm_decay=bn_decay)
         conv6 = nn_layers.conv2d(conv5, 1024, num_feats, [1, 1],
                                  padding='VALID', stride=[1, 1],
-                                 batch_norm=True, is_training=is_training,
+                                 batch_norm=True, is_training=self.is_training,
                                  layer_name='conv6', batch_norm_decay=bn_decay)
 
         # Symmetric function: max pooling
         pool1 = nn_layers.max_pool2d(conv6, [num_point, 1],
                                      padding='VALID', layer_name='maxpool')
 
-        global_feats = tf.reshape(pool1, [batch_size, -1])
-        return global_feats
+        self.global_feats = tf.reshape(pool1, [batch_size, -1])
+        return self.global_feats
 
         # TODO
         # For mil, hypothesises on required changes:
@@ -87,34 +87,33 @@ class PointNet(Model):
         # 2. use conv after max pooling layer
         # Possible issue: locality of points might be lost
 
-    def get_model(self, point_cloud, is_training, bn_decay=None):
+    def get_model(self, bn_decay=None):
         """ Classification PointNet, input is BxNx3, output Bx1 """
-        gf = self.get_global_features(point_cloud, is_training,
-                                      bn_decay=bn_decay)
+        gf = self.get_global_features(bn_decay=bn_decay)
 
         input_channels = gf.get_shape()[-1].value
 
         fc1 = nn_layers.fc(gf, input_channels, 1024, batch_norm=True,
-                           is_training=is_training, layer_name='fc1',
+                           is_training=self.is_training, layer_name='fc1',
                            batch_norm_decay=bn_decay)
         # dp1 = nn_layers.dropout(fc1, keep_prob=0.7, is_training=is_training,
         #                         layer_name='dp1')
-        fc2 = nn_layers.fc(fc1, 1024, 256, batch_norm=True, is_training=is_training,
+        fc2 = nn_layers.fc(fc1, 1024, 256, batch_norm=True, is_training=self.is_training,
                            layer_name='fc2', batch_norm_decay=bn_decay)
         # dp2 = nn_layers.dropout(fc2, keep_prob=0.7, is_training=is_training,
         #                         layer_name='dp2')
-        fc3 = nn_layers.fc(fc2, 256, 64, batch_norm=True, is_training=is_training,
+        fc3 = nn_layers.fc(fc2, 256, 64, batch_norm=True, is_training=self.is_training,
                            layer_name='fc3', batch_norm_decay=bn_decay)
-        pred = nn_layers.fc(fc3, 64, 1, activation_fn=tf.nn.sigmoid,
-                            layer_name='pred', is_training=is_training)
+        self.pred = nn_layers.fc(fc3, 64, 1, activation_fn=tf.nn.sigmoid,
+                            layer_name='pred', is_training=self.is_training)
 
-        return pred
+        return self.pred
 
-    def get_loss(self, pred, label):
+    def get_loss(self):
         """ pred: B*NUM_CLASSES,
             label: B, """
-        loss = -(label * tf.log(pred + 1e-12) +
-                 (1.0 - label) * tf.log(1.0 - pred + 1e-12))
+        loss = -(self.label * tf.log(self.pred + 1e-12) +
+                 (1.0 - self.label) * tf.log(1.0 - self.pred + 1e-12))
         cross_entropy = tf.reduce_sum(loss, reduction_indices=[1])
         classify_loss = tf.reduce_mean(cross_entropy)
 
@@ -128,7 +127,9 @@ class PointNet(Model):
         mat_diff_loss = tf.nn.l2_loss(mat_diff)
         tf.summary.scalar('mat loss', mat_diff_loss)
 
-        return classify_loss #+ mat_diff_loss * self.reg_weight
+        self.loss = classify_loss + mat_diff_loss * self.reg_weight
+
+        return self.loss
 
     def get_batch(self, eval=False, type='mixed'):
         return self.data_handler.get_batch([self.hp['BATCH_SIZE'],

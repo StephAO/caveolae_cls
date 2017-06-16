@@ -83,12 +83,7 @@ class Train:
     def train(self):
         with tf.Graph().as_default():
             with tf.device('/gpu:' + str(self.gpu_index)):
-                t_data_pl, t_labels_pl = self.model.get_input_placeholders()
-                if self.mil is not None:
-                    e_data_pl, e_labels_pl = self.model.model.get_input_placeholders()
-                else:
-                    e_data_pl, e_labels_pl = t_data_pl, t_labels_pl
-                is_training_pl = tf.placeholder(tf.bool, shape=())
+                self.model.get_input_placeholders()
 
                 # Note the global_step=batch parameter to minimize.
                 # That tells the optimizer to helpfully increment the 'batch' parameter for you every time it trains.
@@ -97,10 +92,9 @@ class Train:
                 tf.summary.scalar('bn_decay', bn_decay)
 
                 # Get model and loss
-                pred = self.model.get_model(data_pl, is_training_pl,
-                                                   bn_decay=bn_decay)
-                loss = self.model.get_loss(pred, labels_pl)
-                tf.summary.scalar('loss', loss)
+                self.model.get_model(bn_decay=bn_decay)
+                self.model.get_loss()
+                # tf.summary.scalar('loss', loss)
 
                 # correct = tf.equal(tf.argmax(pred, 1), tf.to_int64(labels_pl))
                 # accuracy = tf.reduce_sum(tf.cast(correct, tf.float32)) / float(
@@ -115,7 +109,7 @@ class Train:
                                                            momentum=self.momentum)
                 elif self.optimizer == 'adam':
                     optimizer = tf.train.AdamOptimizer(learning_rate)
-                train_op = optimizer.minimize(loss, global_step=batch)
+                train_op = optimizer.minimize(self.model.loss, global_step=batch)
 
                 # Add ops to save and restore all the variables.
                 # saver = tf.train.Saver()
@@ -129,7 +123,7 @@ class Train:
 
             # Add summary writers
             # merged = tf.merge_all_summaries()
-            merged = tf.summary.merge_all()
+            # merged = tf.summary.merge_all()
             # train_writer = tf.summary.FileWriter(os.path.join(self.data_dir, 'train'),
             #                                      sess.graph)
             # test_writer = tf.summary.FileWriter(os.path.join(self.data_dir, 'test'))
@@ -139,18 +133,9 @@ class Train:
             # To fix the bug introduced in TF 0.12.1 as in
             # http://stackoverflow.com/questions/41543774/invalidargumenterror-for-tensor-bool-tensorflow-0-12-1
             # sess.run(init)
-            sess.run(init, {is_training_pl: True})
+            sess.run(init, {self.model.is_training: True})
 
-            ops = {'t_data_pl': t_data_pl,
-                   't_labels_pl': t_labels_pl,
-                   'e_data_pl': e_data_pl,
-                   'e_labels_pl': e_labels_pl,
-                   'is_training_pl': is_training_pl,
-                   'pred': pred,
-                   'loss': loss,
-                   'train_op': train_op,
-                   'merged': merged,
-                   'step': batch}
+            ops = {'train_op': train_op, 'step': batch}
 
             metrics = {'t_loss': [None], 'v_loss': [], 't_acc': [None], 'v_acc': []}
 
@@ -189,12 +174,11 @@ class Train:
         for data, labels in self.model.get_batch():
             num_batches += 1
             total_positives += np.sum(labels)
-            feed_dict = {ops['t_data_pl']: data,
-                         ops['t_labels_pl']: labels,
-                         ops['is_training_pl']: is_training, }
-            summary, step, _, loss_val, pred_val = sess.run(
-                [ops['merged'], ops['step'],
-                 ops['train_op'], ops['loss'], ops['pred']], feed_dict=feed_dict)
+            feed_dict = {self.model.input_pl: data,
+                         self.model.label_pl: labels,
+                         self.model.is_training: is_training}
+            step, _, loss_val, pred_val = sess.run(
+                [ops['step'], ops['train_op'], self.model.loss, self.model.pred], feed_dict=feed_dict)
             # train_writer.add_summary(summary, step)
             pred_val = pred_val.flatten()
             pred_val = np.rint(pred_val)
@@ -229,11 +213,10 @@ class Train:
         loss_sum = 0
 
         for data, labels in self.model.get_batch(eval=True):
-            feed_dict = {ops['e_data_pl']: data,
-                         ops['e_labels_pl']: labels,
-                         ops['is_training_pl']: is_training}
-            summary, step, loss_val, pred_val = sess.run([ops['merged'], ops['step'],
-                ops['loss'], ops['pred']], feed_dict=feed_dict)
+            feed_dict = {self.model.input_pl: data,
+                         self.model.label_pl: labels,
+                         self.model.is_training: is_training}
+            step, loss_val, pred_val = sess.run([ops['step'], self.model.loss, self.model.pred], feed_dict=feed_dict)
             pred_val = pred_val.flatten()
             pred_val = np.rint(pred_val)
             correct = np.sum(pred_val == labels)
