@@ -83,7 +83,11 @@ class Train:
     def train(self):
         with tf.Graph().as_default():
             with tf.device('/gpu:' + str(self.gpu_index)):
-                data_pl, labels_pl = self.model.get_input_placeholders()
+                t_data_pl, t_labels_pl = self.model.get_input_placeholders()
+                if self.mil is not None:
+                    e_data_pl, e_labels_pl = self.model.model.get_input_placeholders()
+                else:
+                    e_data_pl, e_labels_pl = t_data_pl, t_labels_pl
                 is_training_pl = tf.placeholder(tf.bool, shape=())
 
                 # Note the global_step=batch parameter to minimize.
@@ -137,8 +141,10 @@ class Train:
             # sess.run(init)
             sess.run(init, {is_training_pl: True})
 
-            ops = {'data_pl': data_pl,
-                   'labels_pl': labels_pl,
+            ops = {'t_data_pl': t_data_pl,
+                   't_labels_pl': t_labels_pl,
+                   'e_data_pl': e_data_pl,
+                   'e_labels_pl': e_labels_pl,
                    'is_training_pl': is_training_pl,
                    'pred': pred,
                    'loss': loss,
@@ -183,8 +189,8 @@ class Train:
         for data, labels in self.model.get_batch():
             num_batches += 1
             total_positives += np.sum(labels)
-            feed_dict = {ops['data_pl']: data,
-                         ops['labels_pl']: labels,
+            feed_dict = {ops['t_data_pl']: data,
+                         ops['t_labels_pl']: labels,
                          ops['is_training_pl']: is_training, }
             summary, step, _, loss_val, pred_val = sess.run(
                 [ops['merged'], ops['step'],
@@ -223,8 +229,8 @@ class Train:
         loss_sum = 0
 
         for data, labels in self.model.get_batch(eval=True):
-            feed_dict = {ops['data_pl']: data,
-                         ops['labels_pl']: labels,
+            feed_dict = {ops['e_data_pl']: data,
+                         ops['e_labels_pl']: labels,
                          ops['is_training_pl']: is_training}
             summary, step, loss_val, pred_val = sess.run([ops['merged'], ops['step'],
                 ops['loss'], ops['pred']], feed_dict=feed_dict)
