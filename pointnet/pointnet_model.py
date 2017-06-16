@@ -25,7 +25,7 @@ class PointNet(Model):
         return pointclouds_pl, labels_pl
 
     def get_global_features(self, point_cloud, is_training, bn_decay=None,
-                            num_feats=1024):
+                            num_feats=2048):
         batch_size = point_cloud.get_shape()[0].value
         num_point = point_cloud.get_shape()[1].value
         end_points = {}
@@ -57,15 +57,15 @@ class PointNet(Model):
 
         input_channels = net_transformed.get_shape()[-1].value
 
-        conv3 = nn_layers.conv2d(net_transformed, input_channels, 64, [1, 64],
+        conv3 = nn_layers.conv2d(net_transformed, input_channels, 64, [1, 1],
                                  padding='VALID', stride=[1, 1],
                                  batch_norm=True, is_training=is_training,
                                  layer_name='conv3', batch_norm_decay=bn_decay)
-        conv4 = nn_layers.conv2d(conv3, 64, 256, [1, 1],
+        conv4 = nn_layers.conv2d(conv3, 64, 512, [1, 1],
                                  padding='VALID', stride=[1, 1],
                                  batch_norm=True, is_training=is_training,
                                  layer_name='conv4', batch_norm_decay=bn_decay)
-        conv5 = nn_layers.conv2d(conv4, 256, num_feats, [1, 1],
+        conv5 = nn_layers.conv2d(conv4, 512, num_feats, [1, 1],
                                  padding='VALID', stride=[1, 1],
                                  batch_norm=True, is_training=is_training,
                                  layer_name='conv5', batch_norm_decay=bn_decay)
@@ -93,13 +93,13 @@ class PointNet(Model):
         fc1 = nn_layers.fc(gf, input_channels, 512, batch_norm=True,
                            is_training=is_training, layer_name='fc1',
                            batch_norm_decay=bn_decay)
-        dp1 = nn_layers.dropout(fc1, keep_prob=0.7, is_training=is_training,
-                                layer_name='dp1')
-        fc2 = nn_layers.fc(dp1, 512, 256, batch_norm=True, is_training=is_training,
+        # dp1 = nn_layers.dropout(fc1, keep_prob=0.7, is_training=is_training,
+        #                         layer_name='dp1')
+        fc2 = nn_layers.fc(fc1, 512, 256, batch_norm=True, is_training=is_training,
                            layer_name='fc2', batch_norm_decay=bn_decay)
-        dp2 = nn_layers.dropout(fc2, keep_prob=0.7, is_training=is_training,
-                                layer_name='dp2')
-        pred = nn_layers.fc(dp2, 256, 1, activation_fn=tf.nn.sigmoid,
+        # dp2 = nn_layers.dropout(fc2, keep_prob=0.7, is_training=is_training,
+        #                         layer_name='dp2')
+        pred = nn_layers.fc(fc2, 256, 1, activation_fn=tf.nn.sigmoid,
                             layer_name='fc3', is_training=is_training)
 
         return pred

@@ -60,7 +60,7 @@ def feature_transform_net(inputs, is_training, bn_decay=None, K=64):
 
     input_channels = inputs.get_shape()[-1].value
 
-    net = nn_layers.conv2d(inputs, input_channels, 64, [1, 64],
+    net = nn_layers.conv2d(inputs, input_channels, 64, [1, 1],
                            padding='VALID', stride=[1, 1],
                            batch_norm=True, is_training=is_training,
                            layer_name='fconv1', batch_norm_decay=bn_decay)
