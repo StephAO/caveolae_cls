@@ -26,10 +26,6 @@ parser.add_argument('--optimizer', default='adam',
 
 FLAGS = parser.parse_args()
 
-print FLAGS
-print vars(FLAGS)
-print type(vars(FLAGS))
-
 if FLAGS.model == "pointnet":
     MODEL = pn.PointNet()
 elif FLAGS.model == "cnn":
@@ -60,7 +56,9 @@ BN_DECAY_CLIP = 0.99
 LOG_DIR = resource_filename('caveolae_cls', '/data')
 if not os.path.exists(LOG_DIR):
     os.mkdir(LOG_DIR)
-LOG_FN = FLAGS.model + (FLAGS.mil if FLAGS.mil is not None else '') + time.strftime("%Y-%m-%d_%H:%M")
+LOG_FN = FLAGS.input_type + '_' + FLAGS.model + '_' + ((FLAGS.mil + '_') if FLAGS.mil != 'None' else '') \
+         + time.strftime("%Y-%m-%d_%H:%M")
+LOG_FN =  os.path.join(LOG_DIR, LOG_FN)
 
 
 def get_learning_rate(batch):
