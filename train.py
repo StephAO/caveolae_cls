@@ -2,10 +2,10 @@ import argparse
 import numpy as np
 import os
 import pickle
-import tensorflow as tf
 import sys
+import tensorflow as tf
+import time
 from pkg_resources import resource_filename
-
 
 import caveolae_cls.pointnet.pointnet_model as pn
 import caveolae_cls.cnn.cnn_model as cnn
@@ -60,6 +60,7 @@ BN_DECAY_CLIP = 0.99
 LOG_DIR = resource_filename('caveolae_cls', '/data')
 if not os.path.exists(LOG_DIR):
     os.mkdir(LOG_DIR)
+LOG_FN = FLAGS.model + (FLAGS.mil if FLAGS.mil is not None else '') + time.strftime("%Y-%m-%d_%H:%M")
 
 
 def get_learning_rate(batch):
@@ -150,7 +151,7 @@ def train():
                'merged': merged,
                'step': batch}
 
-        metrics = {'t_loss': [], 'e_loss': [], 't_acc': [], 'e_acc': []}
+        metrics = {'t_loss': [None], 'v_loss': [], 't_acc': [None], 'v_acc': []}
 
         print "No training eval"
         eval_one_epoch(sess, ops, metrics)
@@ -168,7 +169,7 @@ def train():
             #                            os.path.join(LOG_DIR, "model.ckpt"))
             #     log_string("Model saved in file: %s" % save_path)
 
-    pickle.dump([vars(FLAGS), MODEL.hp, metrics], open("save.p", "wb"))
+    pickle.dump([vars(FLAGS), MODEL.hp, metrics], open(LOG_FN, "wb"))
 
 def train_one_epoch(sess, ops, metrics):
     """ ops: dict mapping from string to tf ops """
@@ -241,9 +242,9 @@ def eval_one_epoch(sess, ops, metrics):
             total_correct_class[l] += (pred_val[i] == l)
 
     print 'eval mean loss: %f' % (loss_sum / float(total_seen))
-    metrics['e_loss'].append(loss_sum / float(total_seen))
+    metrics['v_loss'].append(loss_sum / float(total_seen))
     print 'eval accuracy: %f'% (total_correct / float(total_seen))
-    metrics['e_acc'].append(total_correct / float(total_seen))
+    metrics['v_acc'].append(total_correct / float(total_seen))
     print 'eval avg class acc: %f' % (np.mean(np.array(total_correct_class)
                                                    / np.array(total_seen_class,
                                                               dtype=np.float)))
