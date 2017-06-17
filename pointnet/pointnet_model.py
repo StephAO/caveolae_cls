@@ -16,13 +16,12 @@ class PointNet(Model):
         self.end_points = None
         self.reg_weight = 0.001
         self.output_shape = []
-        self.is_training = tf.placeholder(tf.bool, shape=())
+        self.is_training = None
 
     def generate_input_placeholders(self):
-        self.input_pl = tf.placeholder(tf.float32,
-                                        shape=(self.hp['BATCH_SIZE'],
-                                               self.hp['NUM_POINTS'], 3))
+        self.input_pl = tf.placeholder(tf.float32,  shape=(self.hp['BATCH_SIZE'], self.hp['NUM_POINTS'], 3))
         self.label_pl = tf.placeholder(tf.float32, shape=self.hp['BATCH_SIZE'])
+        self.is_training = tf.placeholder(tf.bool, shape=())
 
     def generate_global_features(self, input_pl=None, bn_decay=None, num_feats=4096):
         input_pl = self.input_pl if input_pl is None else input_pl

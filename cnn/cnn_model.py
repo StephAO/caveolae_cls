@@ -14,11 +14,12 @@ class CNN(Model):
             self.input_shape = [self.hp['BATCH_SIZE'], 600, 600, 3]
         elif input_data_type == "voxels":
             self.input_shape = [self.hp['BATCH_SIZE'], 600, 600, 600]
-        self.is_training = tf.placeholder(tf.bool, shape=())
+        self.is_training = None
 
     def generate_input_placeholders(self):
         self.input_pl = tf.placeholder(tf.float32, shape=(self.input_shape))
         self.label_pl = tf.placeholder(tf.float32, shape=self.hp['BATCH_SIZE'])
+        self.is_training = tf.placeholder(tf.bool, shape=())
 
     def generate_model(self, input_pl=None, bn_decay=None, reuse=None):
         input_pl = self.input_pl if input_pl is None else input_pl

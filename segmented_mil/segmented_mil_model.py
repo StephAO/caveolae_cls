@@ -14,13 +14,14 @@ class SegmentedMIL(Model):
         self.model.input_shape[0] = num_instance_per_bag
         self.num_instances_per_bag = num_instance_per_bag
         self.input_pl_shape = None
-        self.is_training = self.model.is_training
+        self.is_training = None
 
     def generate_input_placeholders(self):
         self.input_pl_shape = [self.hp['BATCH_SIZE']] + [self.num_instances_per_bag] + self.model.input_shape[1:]
         self.input_pl = tf.placeholder(tf.float32, shape=self.input_pl_shape)
         self.label_pl = tf.placeholder(tf.float32, shape=[self.hp['BATCH_SIZE']])
         self.model.generate_input_placeholders()
+        self.is_training = self.model.is_training
 
     def generate_model(self, bn_decay=None):
         i_preds = [None] * self.num_instances_per_bag
