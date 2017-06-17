@@ -33,13 +33,9 @@ class CNNDataHandler(DataHandler):
         """
         Generator that will return batches
         :param files: List of data file names. Each file should contain a 1 element.
-        :param max_ratio_n: Maximum ratio of negative data points in a single batch.
-                            A value of 1 would mean that a batch containing only
-                            negative elements would be acceptable.
         :param batch_shape: Expected shape of a single batch
         :return: Generates batches
         """
-        print batch_shape
         self.batch_size = batch_shape[0]
         self.data = np.zeros(batch_shape)
         self.labels = np.zeros([self.batch_size])

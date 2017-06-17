@@ -11,7 +11,6 @@ class SegmentedMIL(Model):
         self.model = model
         self.hp = self.model.hp
         # self.model.hp['BATCH_SIZE'] = num_instance_per_bag
-        self.model.input_shape[0] = num_instance_per_bag
         self.num_instances_per_bag = num_instance_per_bag
         self.input_pl_shape = None
         self.is_training = None
@@ -45,8 +44,8 @@ class SegmentedMIL(Model):
         data = np.zeros(self.input_pl_shape)
         labels = np.zeros(self.hp['BATCH_SIZE'])
         i = 0
-        for pos, neg in izip(self.model.get_batch(eval=eval, type='positive'),
-                             self.model.get_batch(eval=eval, type='negative')):
+        for pos, neg in izip(self.model.data_handler.get_batch(self.input_pl_shape[1:], eval=eval, type='positive'),
+                             self.model.data_handler.get_batch(self.input_pl_shape[1:], eval=eval, type='negative')):
             data[i] = pos[0]
             labels[i] = 1
             data[i + 1] = neg[0]
