@@ -37,8 +37,8 @@ class CNN(Model):
         pool3 = nn_layers.max_pool2d(conv4, (3, 3), 'pool3', reuse=reuse)
         conv5 = nn_layers.conv2d(pool3, 128, 256, (3, 3), 'conv_5', is_training=self.is_training, reuse=reuse)
         pool4 = nn_layers.max_pool2d(conv5, (3, 3), 'pool4', reuse=reuse)
-        # conv6 = nn_layers.conv2d(pool4, 256, 512, (1, 1), 'conv_6', is_training=is_training)
-        # conv7 = nn_layers.conv2d(conv6, 512, 1024, (1, 1), 'conv_7', is_training=is_training)
+        # conv6 = nn_layers.conv2d(pool4, 256, 512, (1, 1), 'conv_6', is_training=self.is_training, reuse=reuse)
+        # conv7 = nn_layers.conv2d(conv6, 512, 1024, (1, 1), 'conv_7', is_training=self.is_training, reuse=reuse)
         convnet = tf.reshape(pool4, [batch_size, -1])
         input_channels = convnet.get_shape()[-1].value
         fc1 = nn_layers.fc(convnet, input_channels, 256, 'fc1', is_training=self.is_training, reuse=reuse)

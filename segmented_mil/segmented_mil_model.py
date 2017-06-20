@@ -7,7 +7,8 @@ from itertools import izip
 
 class SegmentedMIL(Model):
 
-    def __init__(self, model, num_instance_per_bag=5):
+    def __init__(self, model, num_instance_per_bag=10):
+        super(SegmentedMIL, self).__init__(hp_fn="segmented_mil/hyper_params.yaml")
         self.model = model
         self.hp = self.model.hp
         # self.model.hp['BATCH_SIZE'] = num_instance_per_bag
@@ -30,6 +31,7 @@ class SegmentedMIL(Model):
             i_preds[i] = tf.expand_dims(instance, 1)
         instances = tf.concat(i_preds, 1)
         # Aggregation
+        # self.pred = tf.reduce_mean(instances, axis=1)
         self.pred = nn_layers.noisy_and_1d(instances, 1)
         self.model.generate_model(bn_decay=bn_decay, reuse=True)
         return self.pred

@@ -34,6 +34,7 @@ def main():
         exit(1)
     fn = os.path.join(dir_, sys.argv[1])
     model_info, hyper_params, metrics = pickle.load(open(fn, "rb"))
+    print hyper_params
     graph_metrics(metrics)
 
 if __name__ == "__main__":

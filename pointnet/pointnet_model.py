@@ -111,8 +111,8 @@ class PointNet(Model):
     def generate_loss(self):
         """ pred: B*NUM_CLASSES,
             label: B, """
-        loss = -(self.label * tf.log(self.pred + 1e-12) +
-                 (1.0 - self.label) * tf.log(1.0 - self.pred + 1e-12))
+        loss = -(self.label_pl * tf.log(self.pred + 1e-12) +
+                 (1.0 - self.label_pl) * tf.log(1.0 - self.pred + 1e-12))
         cross_entropy = tf.reduce_sum(loss, reduction_indices=[1])
         classify_loss = tf.reduce_mean(cross_entropy)
 

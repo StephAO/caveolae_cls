@@ -178,7 +178,10 @@ class Train:
                 [ops['step'], ops['train_op'], self.model.loss, self.model.pred], feed_dict=feed_dict)
             # train_writer.add_summary(summary, step)
             pred_val = pred_val.flatten()
+            print pred_val
             pred_val = np.rint(pred_val)
+            print labels
+            print "========="
             correct = np.sum(pred_val == labels)
             total_correct += correct
             total_seen += self.batch_size
