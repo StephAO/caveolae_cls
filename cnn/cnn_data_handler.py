@@ -7,7 +7,7 @@ from caveolae_cls.data_handler import DataHandler
 
 class CNNDataHandler(DataHandler):
 
-    def __init__(self, input_data_type):
+    def __init__(self, input_data_type, use_softmax=False):
         super(CNNDataHandler, self).__init__()
         if input_data_type == "multiview" or input_data_type == "projection":
             self.data_key = 'Img3Ch'
@@ -19,6 +19,7 @@ class CNNDataHandler(DataHandler):
         self.p_eval_files = self.p_files[int(0.9 * len(self.p_files)):]
         self.n_train_files = self.n_files[:int(0.9 * len(self.n_files))]
         self.n_eval_files = self.n_files[int(0.9 * len(self.n_files)):]
+        self.use_softmax = use_softmax
 
     def load_input_data(self, filename):
         """
@@ -27,6 +28,10 @@ class CNNDataHandler(DataHandler):
         f = sio.loadmat(filename)
         data = f[self.data_key][:]
         label = DataHandler.get_label_from_filename(filename)
+        if self.use_softmax:
+            l = np.zeros([2])
+            l[label] = 1
+            label = l
         return data, label
 
     def get_batch(self, batch_shape, eval=False, type='mixed'):
@@ -38,7 +43,7 @@ class CNNDataHandler(DataHandler):
         """
         self.batch_size = batch_shape[0]
         self.data = np.zeros(batch_shape)
-        self.labels = np.zeros([self.batch_size])
+        self.labels = np.zeros([self.batch_size, 2] if self.use_softmax else self.batch_size)
 
         files = []
 

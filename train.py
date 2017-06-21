@@ -177,11 +177,14 @@ class Train:
             step, _, loss_val, pred_val = sess.run(
                 [ops['step'], ops['train_op'], self.model.loss, self.model.pred], feed_dict=feed_dict)
             # train_writer.add_summary(summary, step)
+
+            if self.model.use_softmax:
+                pred_val = np.argmax(pred_val, axis=1)
+                labels = np.argmax(labels, axis=1)
+            else:
+                np.rint(pred_val)
             pred_val = pred_val.flatten()
-            print pred_val
-            pred_val = np.rint(pred_val)
-            print labels
-            print "========="
+
             correct = np.sum(pred_val == labels)
             total_correct += correct
             total_seen += self.batch_size
@@ -192,7 +195,6 @@ class Train:
         metrics['t_loss'].append(loss_sum / float(total_seen))
         print 'accuracy: %f' % (total_correct / float(total_seen))
         metrics['t_acc'].append(total_correct / float(total_seen))
-
 
     def eval_one_epoch(self, sess, ops, metrics):
         """ ops: dict mapping from string to tf ops """
@@ -217,6 +219,11 @@ class Train:
                          self.model.label_pl: labels,
                          self.model.is_training: is_training}
             step, loss_val, pred_val = sess.run([ops['step'], self.model.loss, self.model.pred], feed_dict=feed_dict)
+            if self.model.use_softmax:
+                pred_val = np.argmax(pred_val, axis=1)
+                labels = np.argmax(labels, axis=1)
+            else:
+                np.rint(pred_val)
             pred_val = pred_val.flatten()
             pred_val = np.rint(pred_val)
             correct = np.sum(pred_val == labels)
