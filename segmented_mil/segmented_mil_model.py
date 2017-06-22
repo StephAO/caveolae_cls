@@ -53,7 +53,7 @@ class SegmentedMIL(Model):
 
     def get_batch(self, eval=False):
         data = np.zeros(self.input_pl_shape)
-        labels = np.zeros(self.hp['BATCH_SIZE'])
+        labels = np.zeros([self.hp['BATCH_SIZE'], 2] if self.use_softmax else self.hp['BATCH_SIZE'])
         i = 0
         for pos, neg in izip(self.model.data_handler.get_batch(self.input_pl_shape[1:], eval=eval, type='positive'),
                              self.model.data_handler.get_batch(self.input_pl_shape[1:], eval=eval, type='negative')):
