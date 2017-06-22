@@ -33,16 +33,20 @@ class SegmentedMIL(Model):
         instances = tf.concat(i_preds, 1)
         # Aggregation
         # self.pred = tf.reduce_mean(instances, axis=1)
-        self.pred = nn_layers.noisy_and_1d(instances, 2 if self.model.use_softmax else 1)
-        print self.pred
+        self.prob = nn_layers.noisy_and_1d(instances, 2 if self.model.use_softmax else 1)
+        self.logits = nn_layers.fc(self.pred, 2, 2, 'predicted_y_mil', is_training=self.is_training, activation_fn=None,
+                                   batch_norm=False, reuse=reuse)
+        self.pred = tf.nn.softmax(self.logits, name='softmax_mil')
         self.model.generate_model(bn_decay=bn_decay, reuse=True)
         return self.pred
 
     def generate_loss(self):
         if self.use_softmax:
-            logistic_losses = tf.nn.softmax_cross_entropy_with_logits(logits=self.pred, labels=self.label_pl,
-                                                                      name='sigmoid_xentropy_mil')
-            self.loss = tf.reduce_mean(logistic_losses)
+            loss_p = tf.nn.softmax_cross_entropy_with_logits(logits=self.prob, labels=self.label_pl,
+                                                             name='sigmoid_xentropy_mil')
+            loss_l = tf.nn.softmax_cross_entropy_with_logits(logits=self.logits, labels=self.label_pl,
+                                                             name='sigmoid_xentropy_mil')
+            self.loss = tf.reduce_mean(loss_p + loss_l)
         else:
             simple_loss = -(self.label_pl * tf.log(self.pred + 1e-12) +
                      (1.0 - self.label_pl) * tf.log(1.0 - self.pred + 1e-12))
