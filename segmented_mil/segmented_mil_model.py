@@ -30,15 +30,14 @@ class SegmentedMIL(Model):
             reuse = True if i > 0 else None
             instance = self.model.generate_model(input_pl=self.input_pl[:, i, :, :, :], bn_decay=bn_decay, reuse=reuse)
             i_preds[i] = tf.expand_dims(instance, 1)
-        self.instances = tf.concat(i_preds, 1)
+        instances = tf.concat(i_preds, 1)
+        print instances
         # Aggregation
-        max_idx = tf.argmax(self.instances, axis=1)
-        self.pred = self.instances[np.arange(len(self.instances)), max_idx[:, 1]]
-        # self.logits = tf.reduce_mean(self.instances, axis=0)
+        self.pred = tf.reduce_mean(instances, axis=1)
         # self.features = tf.concat([tf.reduce_mean(instances, axis=1, keep_dims=True), tf.reduce_prod(instances, axis=1, keep_dims=True),
         #                            tf.reduce_max(instances, axis=1, keep_dims=True), tf.reduce_min(instances, axis=1, keep_dims=True),
         #                            tf.reduce_sum(instances, axis=1, keep_dims=True)], 1, name='mil_features')
-        # self.pred = nn_layers.noisy_and_1d(self.instances, 2 if self.model.use_softmax else 1)
+        # self.prob = nn_layers.noisy_and_1d(instances, 2 if self.model.use_softmax else 1)
         # self.features = tf.reshape(self.features, [self.hp['BATCH_SIZE'], -1])
         # self.logits = nn_layers.fc(self.features, 10, 2, 'predicted_y_mil', is_training=self.is_training, activation_fn=None)
         # self.pred = tf.nn.softmax(self.logits, name='softmax_mil')
