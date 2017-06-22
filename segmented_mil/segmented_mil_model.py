@@ -15,6 +15,7 @@ class SegmentedMIL(Model):
         self.num_instances_per_bag = num_instance_per_bag
         self.input_pl_shape = None
         self.is_training = None
+        self.use_softmax = self.model.use_softmax
 
     def generate_input_placeholders(self):
         self.input_pl_shape = [self.hp['BATCH_SIZE']] + [self.num_instances_per_bag] + self.model.input_shape[1:]
@@ -33,14 +34,21 @@ class SegmentedMIL(Model):
         # Aggregation
         # self.pred = tf.reduce_mean(instances, axis=1)
         self.pred = nn_layers.noisy_and_1d(instances, 2 if self.model.use_softmax else 1)
+        print self.pred
         self.model.generate_model(bn_decay=bn_decay, reuse=True)
         return self.pred
 
     def generate_loss(self):
-        loss = -(self.label_pl * tf.log(self.pred + 1e-12) +
-                 (1.0 - self.label_pl) * tf.log(1.0 - self.pred + 1e-12))
-        cross_entropy = tf.reduce_sum(loss, reduction_indices=[1])
-        self.loss = tf.reduce_mean(cross_entropy)
+        if self.use_softmax:
+            logistic_losses = tf.nn.softmax_cross_entropy_with_logits(logits=self.pred, labels=self.label_pl,
+                                                                      name='sigmoid_xentropy_mil')
+            self.loss = tf.reduce_mean(logistic_losses)
+        else:
+            simple_loss = -(self.label_pl * tf.log(self.pred + 1e-12) +
+                     (1.0 - self.label_pl) * tf.log(1.0 - self.pred + 1e-12))
+            cross_entropy = tf.reduce_sum(simple_loss, reduction_indices=[1])
+            self.loss = tf.reduce_mean(cross_entropy)
+
         self.model.generate_loss()
 
     def get_batch(self, eval=False):
