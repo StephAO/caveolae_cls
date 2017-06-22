@@ -10,17 +10,18 @@ from caveolae_cls.pointnet.pointnet_data_handler import \
 
 class PointNet(Model):
 
-    def __init__(self):
+    def __init__(self, use_softmax=True):
         super(PointNet, self).__init__(hp_fn="pointnet/hyper_params.yaml")
-        self.data_handler = PointNetDataHandler()
+        self.data_handler = PointNetDataHandler(use_softmax=use_softmax)
         self.end_points = None
         self.reg_weight = 0.001
         self.output_shape = []
         self.is_training = None
+        self.use_softmax = use_softmax
 
     def generate_input_placeholders(self):
         self.input_pl = tf.placeholder(tf.float32,  shape=(self.hp['BATCH_SIZE'], self.hp['NUM_POINTS'], 3))
-        self.label_pl = tf.placeholder(tf.float32, shape=self.hp['BATCH_SIZE'])
+        self.label_pl = tf.placeholder(tf.float32, shape=[self.hp['BATCH_SIZE'], 2] if self.use_softmax else self.hp['BATCH_SIZE'])
         self.is_training = tf.placeholder(tf.bool, shape=())
 
     def generate_global_features(self, input_pl=None, bn_decay=None, num_feats=4096):
@@ -104,17 +105,29 @@ class PointNet(Model):
         #                         layer_name='dp2')
         fc3 = nn_layers.fc(fc2, 256, 64, batch_norm=True, is_training=self.is_training,
                            layer_name='fc3', batch_norm_decay=bn_decay)
-        self.pred = nn_layers.fc(fc3, 64, 1, activation_fn=tf.nn.sigmoid,
-                            layer_name='pred', is_training=self.is_training)
+        if self.use_softmax:
+             self.logits = nn_layers.fc(fc2, 64, 2, 'predicted_y', is_training=self.is_training, activation_fn=None,
+                                        batch_norm=False, reuse=reuse)
+             self.pred = tf.nn.softmax(self.logits, name='softmax')
+        else:
+            self.pred = nn_layers.fc(fc2, 64, 1, 'predicted_y', is_training=self.is_training,
+                                     activation_fn=tf.nn.sigmoid, batch_norm=False, reuse=reuse)
+
         return self.pred
 
     def generate_loss(self):
         """ pred: B*NUM_CLASSES,
             label: B, """
-        loss = -(self.label_pl * tf.log(self.pred + 1e-12) +
-                 (1.0 - self.label_pl) * tf.log(1.0 - self.pred + 1e-12))
-        cross_entropy = tf.reduce_sum(loss, reduction_indices=[1])
-        classify_loss = tf.reduce_mean(cross_entropy)
+        if self.use_softmax:
+            logistic_losses = tf.nn.softmax_cross_entropy_with_logits(logits=self.logits, labels=self.label_pl,
+                                                                      name='sigmoid_xentropy')
+            classify_loss = tf.reduce_mean(logistic_losses)
+        else:
+
+            loss = -(self.label_pl * tf.log(self.pred + 1e-12) +
+                     (1.0 - self.label_pl) * tf.log(1.0 - self.pred + 1e-12))
+            cross_entropy = tf.reduce_sum(loss, reduction_indices=[1])
+            classify_loss = tf.reduce_mean(cross_entropy)
 
         tf.summary.scalar('classify loss', classify_loss)
 

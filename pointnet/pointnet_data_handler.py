@@ -7,7 +7,7 @@ from caveolae_cls.data_handler import DataHandler
 
 class PointNetDataHandler(DataHandler):
 
-    def __init__(self):
+    def __init__(self, use_softmax=False):
         super(PointNetDataHandler, self).__init__()
         self.p_files = DataHandler.get_data_files(
             '/staff/2/sarocaou/data/pointcloud_positive')
@@ -17,6 +17,7 @@ class PointNetDataHandler(DataHandler):
         self.p_eval_files = self.p_files[int(0.9 * len(self.p_files)):]
         self.n_train_files = self.n_files[:int(0.9 * len(self.n_files))]
         self.n_eval_files = self.n_files[int(0.9 * len(self.n_files)):]
+        self.use_softmax = use_softmax
 
     def load_point_cloud(self, filename):
         """
@@ -27,6 +28,10 @@ class PointNetDataHandler(DataHandler):
         data -= np.mean(data, 0)
         data /= np.amax(abs(data))
         label = DataHandler.get_label_from_filename(filename)
+        if self.use_softmax:
+            l = np.zeros([2])
+            l[label] = 1
+            label = l
         return data, label
 
     def format_point_cloud(self, pc, num_points):
@@ -94,7 +99,7 @@ class PointNetDataHandler(DataHandler):
         """
         self.batch_size = batch_shape[0]
         self.data = np.zeros(batch_shape)
-        self.labels = np.zeros([self.batch_size])
+        self.labels = np.zeros([self.batch_size, 2] if self.use_softmax else self.batch_size)
 
         if eval:
             p_files = self.p_eval_files
