@@ -174,11 +174,12 @@ class Train:
             feed_dict = {self.model.input_pl: data,
                          self.model.label_pl: labels,
                          self.model.is_training: is_training}
-            step, _, loss_val, pred_val = sess.run(
-                [ops['step'], ops['train_op'], self.model.loss, self.model.pred], feed_dict=feed_dict)
+            step, _, loss_val, pred_val, instances = sess.run(
+                [ops['step'], ops['train_op'], self.model.loss, self.model.pred, self.model.instances], feed_dict=feed_dict)
             # train_writer.add_summary(summary, step)
             if num_batches % 10 == 0:
-                print pred_val
+                for i in xrange(len(pred_val)):
+	            print instances[i],'->', pred_val[i]
 
             if self.model.use_softmax:
                 pred_val = np.argmax(pred_val, axis=1)
@@ -221,6 +222,8 @@ class Train:
                          self.model.label_pl: labels,
                          self.model.is_training: is_training}
             step, loss_val, pred_val = sess.run([ops['step'], self.model.loss, self.model.pred], feed_dict=feed_dict)
+            for i in xrange(len(pred_val)):
+		print pred_val[i], '===>', labels[i]
             if self.model.use_softmax:
                 pred_val = np.argmax(pred_val, axis=1)
                 labels = np.argmax(labels, axis=1)
