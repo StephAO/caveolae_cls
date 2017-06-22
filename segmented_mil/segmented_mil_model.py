@@ -58,9 +58,9 @@ class SegmentedMIL(Model):
         for pos, neg in izip(self.model.data_handler.get_batch(self.input_pl_shape[1:], eval=eval, type='positive'),
                              self.model.data_handler.get_batch(self.input_pl_shape[1:], eval=eval, type='negative')):
             data[i] = pos[0]
-            labels[i] = 1
+            labels[i] = np.array([0, 1]) if self.use_softmax else 1
             data[i + 1] = neg[0]
-            labels[i + 1] = 0
+            labels[i + 1] = np.array([1, 0]) if self.use_softmax else 0
             i += 2
             if i >= self.hp['BATCH_SIZE']:
                 yield data, labels
