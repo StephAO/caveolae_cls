@@ -35,12 +35,11 @@ class SegmentedMIL(Model):
         # Aggregation
         # self.pred = tf.reduce_mean(instances, axis=1)
         self.features = tf.concat([tf.reduce_mean(instances, axis=1, keep_dims=True), tf.reduce_prod(instances, axis=1, keep_dims=True),
-                                 tf.reduce_max(instances, axis=1, keep_dims=True), tf.reduce_min(instances, axis=1, keep_dims=True),
-                                 tf.reduce_sum(instances, axis=1, keep_dims=True)], 1, name='mil_features')
+                                   tf.reduce_max(instances, axis=1, keep_dims=True), tf.reduce_min(instances, axis=1, keep_dims=True),
+                                   tf.reduce_sum(instances, axis=1, keep_dims=True)], 1, name='mil_features')
         # self.prob = nn_layers.noisy_and_1d(instances, 2 if self.model.use_softmax else 1)
         self.features = tf.reshape(self.features, [self.hp['BATCH_SIZE'], -1])
-        self.logits = nn_layers.fc(self.features, 10, 2, 'predicted_y_mil', is_training=self.is_training, activation_fn=None,
-                                   batch_norm=False)
+        self.logits = nn_layers.fc(self.features, 10, 2, 'predicted_y_mil', is_training=self.is_training, activation_fn=None)
         self.pred = tf.nn.softmax(self.logits, name='softmax_mil')
         self.model.generate_model(bn_decay=bn_decay, reuse=True)
         return self.pred

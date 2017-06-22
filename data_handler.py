@@ -11,7 +11,7 @@ class DataHandler:
         self.labels = None
 
     @staticmethod
-    def get_data_file(directory):
+    def get_data_files(directory):
         """ Return all files in a given directory """
         return [os.path.join(directory, f) for f in os.listdir(directory)
                 if os.path.isfile(os.path.join(directory, f))]

@@ -177,6 +177,8 @@ class Train:
             step, _, loss_val, pred_val = sess.run(
                 [ops['step'], ops['train_op'], self.model.loss, self.model.pred], feed_dict=feed_dict)
             # train_writer.add_summary(summary, step)
+            if num_batches % 10 == 0:
+                print pred_val
 
             if self.model.use_softmax:
                 pred_val = np.argmax(pred_val, axis=1)

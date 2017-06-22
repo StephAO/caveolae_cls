@@ -9,9 +9,9 @@ class PointNetDataHandler(DataHandler):
 
     def __init__(self):
         super(PointNetDataHandler, self).__init__()
-        self.p_files = DataHandler.get_data_file(
+        self.p_files = DataHandler.get_data_files(
             '/staff/2/sarocaou/data/pointcloud_positive')
-        self.n_files = DataHandler.get_data_file(
+        self.n_files = DataHandler.get_data_files(
             '/staff/2/sarocaou/data/pointcloud_negative')[:len(self.p_files)]
         self.p_train_files = self.p_files[:int(0.9 * len(self.p_files))]
         self.p_eval_files = self.p_files[int(0.9 * len(self.p_files)):]
@@ -25,7 +25,7 @@ class PointNetDataHandler(DataHandler):
         f = sio.loadmat(filename)
         data = f['blob'][:]
         data -= np.mean(data, 0)
-        data /= np.amax(data)
+        data /= np.amax(abs(data))
         label = DataHandler.get_label_from_filename(filename)
         return data, label
 
