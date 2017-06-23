@@ -106,12 +106,12 @@ class PointNet(Model):
         fc3 = nn_layers.fc(fc2, 256, 64, batch_norm=True, is_training=self.is_training,
                            layer_name='fc3', batch_norm_decay=bn_decay)
         if self.use_softmax:
-             self.logits = nn_layers.fc(fc2, 64, 2, 'predicted_y', is_training=self.is_training, activation_fn=None,
-                                        batch_norm=False, reuse=reuse)
-             self.pred = tf.nn.softmax(self.logits, name='softmax')
+            self.logits = nn_layers.fc(fc3, 64, 2, 'predicted_y', is_training=self.is_training, activation_fn=None,
+                                        batch_norm=False)
+            self.pred = tf.nn.softmax(self.logits, name='softmax')
         else:
-            self.pred = nn_layers.fc(fc2, 64, 1, 'predicted_y', is_training=self.is_training,
-                                     activation_fn=tf.nn.sigmoid, batch_norm=False, reuse=reuse)
+            self.pred = nn_layers.fc(fc3, 64, 1, 'predicted_y', is_training=self.is_training,
+                                     activation_fn=tf.nn.sigmoid, batch_norm=False)
 
         return self.pred
 
