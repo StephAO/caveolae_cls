@@ -1,19 +1,20 @@
 import tensorflow as tf
 import caveolae_cls.nn_layers as nn_layers
 from caveolae_cls.model import Model
-from caveolae_cls.cnn.cnn_data_handler import \
-                                    CNNDataHandler
+from caveolae_cls.cnn.cnn_data_handler import CNNDataHandler
 
 
 class CNN(Model):
+
+    proj_dim = 600
 
     def __init__(self, input_data_type, use_softmax=True):
         super(CNN, self).__init__(hp_fn="cnn/hyper_params.yaml")
         self.data_handler = CNNDataHandler(input_data_type, use_softmax)
         if input_data_type == "multiview" or input_data_type == "projection":
-            self.input_shape = [self.hp['BATCH_SIZE'], 600, 600, 3]
+            self.input_shape = [self.hp['BATCH_SIZE'], CNN.proj_dim, CNN.proj_dim, 3]
         elif input_data_type == "voxels":
-            self.input_shape = [self.hp['BATCH_SIZE'], 600, 600, 600]
+            self.input_shape = [self.hp['BATCH_SIZE'], CNN.proj_dim, CNN.proj_dim, CNN.proj_dim]
         self.is_training = None
         self.use_softmax = use_softmax
 
@@ -29,14 +30,14 @@ class CNN(Model):
         batch_size = input_pl.get_shape()[0].value
 
         pool0 = nn_layers.max_pool2d(input_pl, (2, 2), 'pool0', reuse=reuse)
-        conv1 = nn_layers.conv2d(pool0, input_channels, 16, (3, 3), 'conv_1', is_training=self.is_training, reuse=reuse)
-        conv2 = nn_layers.conv2d(conv1, 16, 32, (3, 3), 'conv_2', is_training=self.is_training, reuse=reuse)
+        conv1 = nn_layers.conv2d(pool0, input_channels, 32, (3, 3), 'conv_1', is_training=self.is_training, reuse=reuse)
+        conv2 = nn_layers.conv2d(conv1, 32, 64, (3, 3), 'conv_2', is_training=self.is_training, reuse=reuse)
         pool1 = nn_layers.max_pool2d(conv2, (3, 3), 'pool1', reuse=reuse)
-        conv3 = nn_layers.conv2d(pool1, 32, 64, (3, 3), 'conv_3', is_training=self.is_training, reuse=reuse)
+        conv3 = nn_layers.conv2d(pool1, 64, 128, (3, 3), 'conv_3', is_training=self.is_training, reuse=reuse)
         pool2 = nn_layers.max_pool2d(conv3, (3, 3), 'pool2', reuse=reuse)
-        conv4 = nn_layers.conv2d(pool2, 64, 128, (3, 3), 'conv_4', is_training=self.is_training, reuse=reuse)
+        conv4 = nn_layers.conv2d(pool2, 128, 256, (3, 3), 'conv_4', is_training=self.is_training, reuse=reuse)
         pool3 = nn_layers.max_pool2d(conv4, (3, 3), 'pool3', reuse=reuse)
-        conv5 = nn_layers.conv2d(pool3, 128, 256, (3, 3), 'conv_5', is_training=self.is_training, reuse=reuse)
+        conv5 = nn_layers.conv2d(pool3, 256, 512, (3, 3), 'conv_5', is_training=self.is_training, reuse=reuse)
         pool4 = nn_layers.max_pool2d(conv5, (3, 3), 'pool4', reuse=reuse)
         # conv6 = nn_layers.conv2d(pool4, 256, 512, (1, 1), 'conv_6', is_training=self.is_training, reuse=reuse)
         # conv7 = nn_layers.conv2d(conv6, 512, 1024, (1, 1), 'conv_7', is_training=self.is_training, reuse=reuse)

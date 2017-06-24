@@ -54,9 +54,20 @@ class Train:
         if not os.path.exists(self.data_dir):
             os.mkdir(self.data_dir)
         self.data_fn = FLAGS.input_type + '_' + FLAGS.model + '_' + ((self.mil + '_') if self.mil is not None else '') \
-                 + time.strftime("%Y-%m-%d_%H:%M")
-        self.data_fn =  os.path.join(self.data_dir, self.data_fn)
+                       + time.strftime("%Y-%m-%d_%H:%M")
+        self.data_fn = os.path.join(self.data_dir, self.data_fn)
 
+        self.metrics = {
+            'training_loss': [None], 'validation_loss': [],
+            'training_accuracy': [None], 'validation_accuracy': [],
+            'training_precision': [None], 'validation_precision': [],
+            'training_recall': [None], 'validation_recall': [],
+            'training_f1': [None], 'validation_f1': []}
+        self.tp = 0
+        self.tn = 0
+        self.fp = 0
+        self.fn = 0
+        self.loss = 0.
 
     def get_learning_rate(self, batch):
         learning_rate = tf.train.exponential_decay(
@@ -68,7 +79,6 @@ class Train:
         learning_rate = tf.maximum(learning_rate, 0.00001)  # CLIP THE LEARNING RATE!
         return learning_rate
 
-
     def get_bn_decay(self, batch):
         bn_momentum = tf.train.exponential_decay(
             self.bn_init_decay,
@@ -79,6 +89,43 @@ class Train:
         bn_decay = tf.minimum(self.bn_decay_clip, 1 - bn_momentum)
         return bn_decay
 
+    def reset_scores(self):
+        self.tp = 0
+        self.tn = 0
+        self.fp = 0
+        self.fn = 0
+        self.loss = 0.
+
+    def update_scores(self, loss, true, pred):
+        self.loss += float(loss / float(self.batch_size))
+        old_sum = self.tp + self.tn + self.fp + self.fn
+        self.tp += np.count_nonzero(true * pred)
+        self.tn += np.count_nonzero((true - 1) * (pred - 1))
+        self.fp += np.count_nonzero((true - 1) * pred)
+        self.fn += np.count_nonzero(true * (pred - 1))
+        assert (old_sum + self.batch_size == self.tp + self.tn + self.fp + self.fn)
+
+    def calculate_metrics(self, reset_scores=True):
+        accuracy = 0. if self.tp + self.tn == 0 else (self.tp + self.tn) / float(self.tp + self.tn + self.fp + self.fn)
+        precision = 0. if self.tp == 0 else self.tp / float(self.tp + self.fp)
+        recall = 0. if self.tp == 0 else self.tp / float(self.tp + self.fn)
+        f1 = 0. if precision + recall == 0 else 2 * precision * recall / (precision + recall)
+        if reset_scores:
+            self.reset_scores()
+        return self.loss, accuracy, precision, recall, f1
+
+    def update_metrics(self, loss, accuracy, precision, recall, f1, training=True):
+        prefix = 'training_' if training else 'validation_'
+        self.metrics[prefix + 'loss'].append(loss)
+        self.metrics[prefix + 'accuracy'].append(accuracy)
+        self.metrics[prefix + 'precision'].append(precision)
+        self.metrics[prefix + 'recall'].append(recall)
+        self.metrics[prefix + 'f1'].append(f1)
+        print prefix + 'loss: ' + str(loss)
+        print prefix + 'accuracy: ' + str(accuracy)
+        print prefix + 'precision: ' + str(precision)
+        print prefix + 'recall: ' + str(recall)
+        print prefix + 'f1: ' + str(f1)
 
     def train(self):
         with tf.Graph().as_default():
@@ -91,12 +138,6 @@ class Train:
 
                 # Get model and loss
                 self.model.generate(bn_decay=bn_decay)
-                # tf.summary.scalar('loss', loss)
-
-                # correct = tf.equal(tf.argmax(pred, 1), tf.to_int64(labels_pl))
-                # accuracy = tf.reduce_sum(tf.cast(correct, tf.float32)) / float(
-                #     self.batch_size)
-                # tf.summary.scalar('accuracy', accuracy)
 
                 # Get training operator
                 learning_rate = self.get_learning_rate(batch)
@@ -127,24 +168,20 @@ class Train:
 
             # Init variables
             init = tf.global_variables_initializer()
-            # To fix the bug introduced in TF 0.12.1 as in
-            # http://stackoverflow.com/questions/41543774/invalidargumenterror-for-tensor-bool-tensorflow-0-12-1
-            # sess.run(init)
+
             sess.run(init, {self.model.is_training: True})
 
             ops = {'train_op': train_op, 'step': batch}
 
-            metrics = {'t_loss': [None], 'v_loss': [], 't_acc': [None], 'v_acc': []}
-
-            print "No training eval"
-            self.eval_one_epoch(sess, ops, metrics)
+            print "Initialization evaluation"
+            self.eval_one_epoch(sess, ops)
 
             for epoch in range(self.max_epoch):
-                print '**** EPOCH %03d ****' % (epoch)
+                print '-' * 10 + ' Epoch: %03d' % epoch + '-' * 10
                 sys.stdout.flush()
 
-                self.train_one_epoch(sess, ops, metrics)
-                self.eval_one_epoch(sess, ops, metrics)
+                self.train_one_epoch(sess, ops)
+                self.eval_one_epoch(sess, ops)
 
                 # Save the variables to disk.
                 # if epoch % 10 == 0:
@@ -152,69 +189,37 @@ class Train:
                 #                            os.path.join(self.data_dir, "model.ckpt"))
                 #     log_string("Model saved in file: %s" % save_path)
 
-        pickle.dump([vars(self.flags), self.model.hp, metrics], open(self.data_fn, "wb"))
+        pickle.dump([vars(self.flags), self.model.hp, self.metrics], open(self.data_fn, "wb"))
 
-    def train_one_epoch(self, sess, ops, metrics):
+    def train_one_epoch(self, sess, ops):
         """ ops: dict mapping from string to tf ops """
         is_training = True
-
-        # Force number of files to be a multiple of batch size
-        # batch_shape = [self.batch_size, NUM_POINT, 3]
-
         # Shuffle train files
-        total_correct = 0
-        total_seen = 0
-        total_positives = 0
-        loss_sum = 0
-        num_batches = 0
-
         for data, labels in self.model.get_batch():
-            num_batches += 1
-            total_positives += np.sum(labels)
             feed_dict = {self.model.input_pl: data,
                          self.model.label_pl: labels,
                          self.model.is_training: is_training}
             step, _, loss_val, pred_val = sess.run(
                 [ops['step'], ops['train_op'], self.model.loss, self.model.pred], feed_dict=feed_dict)
             # train_writer.add_summary(summary, step)
-            if num_batches % 10 == 0:
-                print pred_val
-
             if self.model.use_softmax:
                 pred_val = np.argmax(pred_val, axis=1)
                 labels = np.argmax(labels, axis=1)
             else:
                 np.rint(pred_val)
             pred_val = pred_val.flatten()
+            # calculate metrics
+            self.update_scores(loss_val, labels, pred_val)
 
-            correct = np.sum(pred_val == labels)
-            total_correct += correct
-            total_seen += self.batch_size
-            loss_sum += loss_val
+        loss, accuracy, precision, recall, f1 = self.calculate_metrics()
+        self.update_metrics(loss, accuracy, precision, recall, f1, training=False)
 
-        print "Positive clusters: %d" % total_positives
-        print 'mean loss: %f' % (loss_sum / float(total_seen))
-        metrics['t_loss'].append(loss_sum / float(total_seen))
-        print 'accuracy: %f' % (total_correct / float(total_seen))
-        metrics['t_acc'].append(total_correct / float(total_seen))
-
-    def eval_one_epoch(self, sess, ops, metrics):
+    def eval_one_epoch(self, sess, ops):
         """ ops: dict mapping from string to tf ops """
         if self.mil is not None:
             full_model = self.model
             self.model = self.model.model
         is_training = False
-        total_seen_class = [0 for _ in range(self.num_classes)]
-        total_correct_class = [0 for _ in range(self.num_classes)]
-
-        # Force number of files to be a multiple of batch size
-        # batch_shape = [self.batch_size, NUM_POINT, 3]
-
-        # Shuffle train files
-
-        total_correct = 0
-        total_seen = 0
-        loss_sum = 0
 
         for data, labels in self.model.get_batch(eval=True):
             feed_dict = {self.model.input_pl: data,
@@ -227,23 +232,12 @@ class Train:
             else:
                 np.rint(pred_val)
             pred_val = pred_val.flatten()
-            pred_val = np.rint(pred_val)
-            correct = np.sum(pred_val == labels)
-            total_correct += correct
-            total_seen += self.batch_size
-            loss_sum += loss_val
-            for i in range(self.batch_size):
-                l = int(labels[i])
-                total_seen_class[l] += 1
-                total_correct_class[l] += (pred_val[i] == l)
+            # calculate metrics
+            self.update_scores(loss_val, labels, pred_val)
 
-        print 'eval mean loss: %f' % (loss_sum / float(total_seen))
-        metrics['v_loss'].append(loss_sum / float(total_seen))
-        print 'eval accuracy: %f'% (total_correct / float(total_seen))
-        metrics['v_acc'].append(total_correct / float(total_seen))
-        print 'eval avg class acc: %f' % (np.mean(np.array(total_correct_class)
-                                                       / np.array(total_seen_class,
-                                                                  dtype=np.float)))
+        loss, accuracy, precision, recall, f1 = self.calculate_metrics()
+        self.update_metrics(loss, accuracy, precision, recall, f1, training=False)
+
         if self.mil is not None:
             self.model = full_model
 
@@ -261,9 +255,10 @@ def main():
     parser.add_argument('--optimizer', default='adam',
                         help='adam or momentum [default: adam]')
 
-    FLAGS = parser.parse_args()
+    flags = parser.parse_args()
 
-    t = Train(FLAGS).train()
+    t = Train(flags)
+    t.train()
 
 if __name__ == "__main__":
     main()

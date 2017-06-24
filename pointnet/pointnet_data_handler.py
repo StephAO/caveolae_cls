@@ -8,16 +8,9 @@ from caveolae_cls.data_handler import DataHandler
 class PointNetDataHandler(DataHandler):
 
     def __init__(self, use_softmax=False):
-        super(PointNetDataHandler, self).__init__()
-        self.p_files = DataHandler.get_data_files(
-            '/staff/2/sarocaou/data/pointcloud_positive')
-        self.n_files = DataHandler.get_data_files(
-            '/staff/2/sarocaou/data/pointcloud_negative')[:len(self.p_files)]
-        self.p_train_files = self.p_files[:int(0.9 * len(self.p_files))]
-        self.p_eval_files = self.p_files[int(0.9 * len(self.p_files)):]
-        self.n_train_files = self.n_files[:int(0.9 * len(self.n_files))]
-        self.n_eval_files = self.n_files[int(0.9 * len(self.n_files)):]
-        self.use_softmax = use_softmax
+        super(PointNetDataHandler, self).__init__('/staff/2/sarocaou/data/pointcloud_positive',
+                                                  '/staff/2/sarocaou/data/pointcloud_negative',
+                                                  use_softmax)
 
     def load_point_cloud(self, filename):
         """
@@ -56,36 +49,38 @@ class PointNetDataHandler(DataHandler):
 
         return resized_pc
 
-    def jitter_point_cloud(self, sigma=0.01, clip=0.05):
+    @staticmethod
+    def jitter_point_cloud(data, sigma=1, clip=10):
         """
         Randomly jitter points. jittering is per point.
         :param batch_data: BxNx3 array, original batch of point clouds
         :return BxNx3 array, jittered batch of point clouds
         """
-        B, N, C = self.data.shape
+        B, N, C = data.shape
         assert(clip > 0)
         jittered_data = np.clip(sigma * np.random.randn(B, N, C), -1*clip, clip)
-        jittered_data += self.data
-        self.data = jittered_data
+        jittered_data += data
+        return jittered_data
 
-    def rotate_point_cloud(self):
+    @staticmethod
+    def rotate_point_cloud(data):
         """
-        Randomly rotate the point clouds to augument the dataset
+        Randomly rotate the point clouds to augment the dataset
         rotation is per shape based along up direction
         :param batch_data: BxNx3 array, original batch of point clouds
         :return BxNx3 array, rotated batch of point clouds
         """
-        rotated_data = np.zeros(self.data.shape, dtype=np.float32)
-        for k in xrange(self.data.shape[0]):
+        rotated_data = np.zeros(data.shape, dtype=np.float32)
+        for k in xrange(data.shape[0]):
             rotation_angle = np.random.uniform() * 2 * np.pi
             cosval = np.cos(rotation_angle)
             sinval = np.sin(rotation_angle)
             rotation_matrix = np.array([[cosval, 0, sinval],
                                         [0, 1, 0],
                                         [-sinval, 0, cosval]])
-            shape_pc = self.data[k, ...]
+            shape_pc = data[k, ...]
             rotated_data[k, ...] = np.dot(shape_pc.reshape((-1, 3)), rotation_matrix)
-        self.data = rotated_data
+        return rotated_data
 
     def get_batch(self, batch_shape, eval=False, type='mixed'):
         """
@@ -145,8 +140,8 @@ class PointNetDataHandler(DataHandler):
             i += 2
             if i >= self.batch_size:
                 # Augment batched point clouds by rotation and jittering
-                # self.rotate_point_cloud()
-                # self.jitter_point_cloud()
+                # self.data = PointNetDataHandler.rotate_point_cloud(self.data)
+                # self.data = PointNetDataHandler.jitter_point_cloud(self.data)
                 # Yield batch
                 yield self.data, self.labels
                 i = 0

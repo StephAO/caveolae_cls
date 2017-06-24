@@ -8,18 +8,11 @@ from caveolae_cls.data_handler import DataHandler
 class CNNDataHandler(DataHandler):
 
     def __init__(self, input_data_type, use_softmax=False):
-        super(CNNDataHandler, self).__init__()
         if input_data_type == "multiview" or input_data_type == "projection":
             self.data_key = 'Img3Ch'
-            self.p_files = DataHandler.get_data_files(
-                '/staff/2/sarocaou/data/projection_positive')
-            self.n_files = DataHandler.get_data_files(
-                '/staff/2/sarocaou/data/projection_negative')[:len(self.p_files)]
-        self.p_train_files = self.p_files[:int(0.9 * len(self.p_files))]
-        self.p_eval_files = self.p_files[int(0.9 * len(self.p_files)):]
-        self.n_train_files = self.n_files[:int(0.9 * len(self.n_files))]
-        self.n_eval_files = self.n_files[int(0.9 * len(self.n_files)):]
-        self.use_softmax = use_softmax
+            p_file_dir = '/staff/2/sarocaou/data/projection_positive'
+            n_file_dir = '/staff/2/sarocaou/data/projection_negative'
+        super(CNNDataHandler, self).__init__(p_file_dir, n_file_dir, use_softmax)
 
     def load_input_data(self, filename):
         """
