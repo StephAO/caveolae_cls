@@ -140,8 +140,8 @@ class PointNetDataHandler(DataHandler):
             i += 2
             if i >= self.batch_size:
                 # Augment batched point clouds by rotation and jittering
-                # self.data = PointNetDataHandler.rotate_point_cloud(self.data)
-                # self.data = PointNetDataHandler.jitter_point_cloud(self.data)
+                self.data = PointNetDataHandler.rotate_point_cloud(self.data)
+                self.data = PointNetDataHandler.jitter_point_cloud(self.data)
                 # Yield batch
                 yield self.data, self.labels
                 i = 0

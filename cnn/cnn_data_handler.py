@@ -60,7 +60,7 @@ class CNNDataHandler(DataHandler):
         for count, idx in enumerate(random_file_idxs):
             if float(count) / len(random_file_idxs) >= progress + 0.05:
                 progress += 0.05
-                print str(int(progress * 100)) + "%",
+                print str(int(round(progress * 100))) + "%",
                 sys.stdout.flush()
                 if abs(progress - 0.95) <= 0.01:
                     print ""

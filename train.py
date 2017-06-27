@@ -67,6 +67,7 @@ class Train:
         self.tn = 0
         self.fp = 0
         self.fn = 0
+        self.count = 0
         self.loss = 0.
 
     def get_learning_rate(self, batch):
@@ -94,10 +95,12 @@ class Train:
         self.tn = 0
         self.fp = 0
         self.fn = 0
+        self.count = 0
         self.loss = 0.
 
     def update_scores(self, loss, true, pred):
         self.loss += float(loss / float(self.batch_size))
+        self.count += 1
         old_sum = self.tp + self.tn + self.fp + self.fn
         self.tp += np.count_nonzero(true * pred)
         self.tn += np.count_nonzero((true - 1) * (pred - 1))
@@ -106,13 +109,14 @@ class Train:
         assert (old_sum + self.batch_size == self.tp + self.tn + self.fp + self.fn)
 
     def calculate_metrics(self, reset_scores=True):
+        loss = self.loss / float(self.count)
         accuracy = 0. if self.tp + self.tn == 0 else (self.tp + self.tn) / float(self.tp + self.tn + self.fp + self.fn)
         precision = 0. if self.tp == 0 else self.tp / float(self.tp + self.fp)
         recall = 0. if self.tp == 0 else self.tp / float(self.tp + self.fn)
         f1 = 0. if precision + recall == 0 else 2 * precision * recall / (precision + recall)
         if reset_scores:
             self.reset_scores()
-        return self.loss, accuracy, precision, recall, f1
+        return loss, accuracy, precision, recall, f1
 
     def update_metrics(self, loss, accuracy, precision, recall, f1, training=True):
         prefix = 'training_' if training else 'validation_'
@@ -212,7 +216,7 @@ class Train:
             self.update_scores(loss_val, labels, pred_val)
 
         loss, accuracy, precision, recall, f1 = self.calculate_metrics()
-        self.update_metrics(loss, accuracy, precision, recall, f1, training=False)
+        self.update_metrics(loss, accuracy, precision, recall, f1, training=True)
 
     def eval_one_epoch(self, sess, ops):
         """ ops: dict mapping from string to tf ops """

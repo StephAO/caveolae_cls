@@ -1,6 +1,7 @@
 import numpy as np
 import os
 import scipy.io as sio
+import shutil
 import sys
 
 from caveolae_cls.data_handler import DataHandler
@@ -8,8 +9,8 @@ from caveolae_cls.pointnet.pointnet_data_handler import PointNetDataHandler
 from caveolae_cls.cnn.cnn_model import CNN
 
 
-def upsample(blob_dir, target_dir, num_new_samples=None):
-    files = DataHandler.get_data_files(blob_dir)
+def upsample(files, target_dir, num_new_samples=None):
+    """Given a directory of 3D point clouds, upsamples"""
     np.random.shuffle(files)
     if num_new_samples is None:
         num_new_samples = len(files)
@@ -30,9 +31,21 @@ def upsample(blob_dir, target_dir, num_new_samples=None):
         del data["blob"]
         new_file_path = os.path.join(target_dir, 'synthetic_' + str(new_samples) + '_' +
                                      files[i].split('/')[-1].split('_')[-1])
-        sio.savemat(new_file_path, data)
+        sio.savemat(new_file_path, data, do_compression=True)
         new_samples += 1
         i = (i + 1) % len(files)
+
+
+def convert(files, target_dir):
+    for f in files:
+        data = sio.loadmat(f)
+        blob = data["blob"]
+        proj = blob_to_projections(blob)
+        data["Img3Ch"] = proj
+        del data["blob"]
+        new_file_path = os.path.join(target_dir, f.split('/')[-1])
+        sio.savemat(new_file_path, data, do_compression=True)
+
 
 def blob_to_projections(blob):
     proj_dim = int(CNN.proj_dim)
@@ -57,30 +70,43 @@ def blob_to_projections(blob):
     return proj
 
 
-def convert(blob_dir, target_dir):
-    for f in DataHandler.get_data_files(blob_dir):
-        data = sio.loadmat(f)
-        blob = data["blob"]
-        proj = blob_to_projections(blob)
-        data["Img3Ch"] = proj
-        del data["blob"]
-        new_file_path = os.path.join(target_dir, f.split('/')[-1])
-        sio.savemat(new_file_path, data)
+def create_training_validation(blob_dir, target_dir, input_type, validation_ratio=0.1, num_new_samples=None):
+    training_dir = os.path.join(target_dir, "training")
+    validation_dir = os.path.join(target_dir, "validation")
+
+    if not os.path.exists(target_dir):
+        os.mkdir(target_dir)
+    if not os.path.exists(training_dir):
+        os.mkdir(training_dir)
+    if not os.path.exists(validation_dir):
+        os.mkdir(validation_dir)
+
+    files = DataHandler.get_data_files(blob_dir)
+    np.random.shuffle(files)
+
+    num_val = int(validation_ratio * len(files))
+
+    if input_type == "projection":
+        convert(files[:num_val], validation_dir)
+
+        convert(files[num_val:], training_dir)
+        upsample(files[num_val:], training_dir, num_new_samples=num_new_samples)
+    elif input_type == "pointcloud":
+        for f in files[:num_val]:
+            shutil.copy2(f, validation_dir)
+        for f in files[num_val:]:
+            shutil.copy2(f, training_dir)
 
 
 def main():
-    blob_dir = sys.argv[1]
-    target_dir = sys.argv[2]
-    if len(sys.argv) >= 4:
-        fn_flag = sys.argv[3]
-        if fn_flag == "convert":
-            fn = convert
-        else:
-            fn = upsample
-    else:
-        fn = upsample
+    input_type = sys.argv[1]
+    blob_dir = sys.argv[2]
+    target_dir = sys.argv[3]
+    validation_ratio = 0.1 if len(sys.argv) < 5 else float(sys.argv[4])
+    num_new_samples = None if len(sys.argv) < 6 else int(sys.argv[5])
 
-    fn(blob_dir, target_dir)
+    create_training_validation(blob_dir, target_dir, input_type,
+                               validation_ratio=validation_ratio, num_new_samples=num_new_samples)
 
 if __name__ == '__main__':
     main()

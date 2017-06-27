@@ -120,6 +120,52 @@ def conv2d(input_tensor, num_in_feat_maps, num_out_feat_maps, kernel_size,
         return outputs
 
 
+def conv2d_transpose(input_tensor, num_in_feat_maps, num_out_feat_maps, kernel_size,
+           layer_name, stride=[1, 1], padding='SAME', use_xavier=True,
+           stddev=1e-3, activation_fn=tf.nn.relu, batch_norm=False,
+           batch_norm_decay=None, is_training=None, reuse=None):
+    """
+    2D convolution with non-linear operation.
+    Args:
+        input_tensor: 4-D tensor variable BxHxWxC
+        num_in_feat_maps: int
+        num_out_feat_maps: int
+        kernel_size: a list of 2 ints
+        layer_name: string used to scope variables in layer
+        stride: a list of 2 ints
+        padding: 'SAME' or 'VALID'
+        use_xavier: bool, use xavier_initializer if true
+        stddev: float, stddev for truncated_normal init
+        activation_fn: function
+        batch_norm: bool, whether to use batch norm
+        batch_norm_decay: float or float tensor variable in [0,1]
+        is_training: bool Tensor variable
+
+    Returns:
+        Variable tensor
+
+    """
+    with tf.variable_scope(layer_name, reuse=reuse) as sc:
+        kernel_h, kernel_w = kernel_size
+        kernel_shape = [kernel_h, kernel_w, num_in_feat_maps, num_out_feat_maps]
+        weights = weight_variable('weights', shape=kernel_shape,
+                                  use_xavier=use_xavier, stddev=stddev)
+        stride_h, stride_w = stride
+        outputs = tf.nn.conv2d_transpose(input_tensor, weights,
+                                         [1, stride_h, stride_w, 1],
+                                         padding=padding)
+        biases = bias_variable('biases', [num_out_feat_maps], value=1e-3)
+        outputs = tf.nn.bias_add(outputs, biases)
+
+        if batch_norm:
+            outputs = batch_norm_conv2d(outputs, is_training, reuse=reuse,
+                                        bn_decay=batch_norm_decay, scope='bn')
+        if activation_fn is not None:
+            outputs = activation_fn(outputs)
+
+        return outputs
+
+
 def conv3d(input_tensor, num_in_feat_maps, num_out_feat_maps, kernel_size,
            layer_name, stride=[1, 1, 1], padding='SAME', use_xavier=True,
            stddev=1e-3, activation_fn=tf.nn.relu, batch_norm=False,
