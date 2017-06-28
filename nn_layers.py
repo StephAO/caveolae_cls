@@ -121,7 +121,7 @@ def conv2d(input_tensor, num_in_feat_maps, num_out_feat_maps, kernel_size,
 
 
 def conv2d_transpose(input_tensor, num_in_feat_maps, num_out_feat_maps, kernel_size,
-           layer_name, stride=[1, 1], padding='SAME', use_xavier=True,
+           layer_name, stride=[2, 2], padding='SAME', use_xavier=True,
            stddev=1e-3, activation_fn=tf.nn.relu, batch_norm=False,
            batch_norm_decay=None, is_training=None, reuse=None):
     """
@@ -145,21 +145,25 @@ def conv2d_transpose(input_tensor, num_in_feat_maps, num_out_feat_maps, kernel_s
         Variable tensor
 
     """
+    if padding == 'VALID':
+        raise NotImplementedError("output shape calculation not implemented for valid padding.")
+
     with tf.variable_scope(layer_name, reuse=reuse) as sc:
         kernel_h, kernel_w = kernel_size
-        kernel_shape = [kernel_h, kernel_w, num_in_feat_maps, num_out_feat_maps]
+        kernel_shape = [kernel_h, kernel_w, num_out_feat_maps, num_in_feat_maps]
         weights = weight_variable('weights', shape=kernel_shape,
                                   use_xavier=use_xavier, stddev=stddev)
         stride_h, stride_w = stride
-        outputs = tf.nn.conv2d_transpose(input_tensor, weights,
+        input_shape = input_tensor.get_shape().as_list()
+        output_shape = [input_shape[0], input_shape[1] * stride_h, input_shape[2] * stride_w, num_out_feat_maps]
+        outputs = tf.nn.conv2d_transpose(input_tensor, weights, output_shape
                                          [1, stride_h, stride_w, 1],
                                          padding=padding)
         biases = bias_variable('biases', [num_out_feat_maps], value=1e-3)
         outputs = tf.nn.bias_add(outputs, biases)
 
         if batch_norm:
-            outputs = batch_norm_conv2d(outputs, is_training, reuse=reuse,
-                                        bn_decay=batch_norm_decay, scope='bn')
+            raise NotImplementedError("conv2d_transpose batch_norm not implemented")
         if activation_fn is not None:
             outputs = activation_fn(outputs)
 
