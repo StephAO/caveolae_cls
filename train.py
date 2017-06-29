@@ -25,7 +25,7 @@ class Train:
         elif FLAGS.model == "cnn":
             self.model = cnn.CNN(FLAGS.input_type)
             self.classification = True
-        elif FLAGS.model == "cae"
+        elif FLAGS.model == "cae":
             self.model = cnn.CNN(FLAGS.input_type)
             self.classification = False
         else:
