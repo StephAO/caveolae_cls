@@ -21,8 +21,16 @@ class Train:
         if FLAGS.model == "pointnet":
             self.model = pn.PointNet()
             FLAGS.input_type = "pointcloud"
+            self.classification = True
         elif FLAGS.model == "cnn":
             self.model = cnn.CNN(FLAGS.input_type)
+            self.classification = True
+        elif FLAGS.model == "cae"
+            self.model = cnn.CNN(FLAGS.input_type)
+            self.classification = False
+        else:
+            raise NotImplementedError("%s is not an implemented model" % FLAGS.model)
+
         # Select mil
         if FLAGS.mil == "seg":
             self.model = segmented_mil.SegmentedMIL(self.model)
@@ -101,12 +109,13 @@ class Train:
     def update_scores(self, loss, true, pred):
         self.loss += float(loss / float(self.batch_size))
         self.count += 1
-        old_sum = self.tp + self.tn + self.fp + self.fn
-        self.tp += np.count_nonzero(true * pred)
-        self.tn += np.count_nonzero((true - 1) * (pred - 1))
-        self.fp += np.count_nonzero((true - 1) * pred)
-        self.fn += np.count_nonzero(true * (pred - 1))
-        assert (old_sum + self.batch_size == self.tp + self.tn + self.fp + self.fn)
+        if self.classification:
+            old_sum = self.tp + self.tn + self.fp + self.fn
+            self.tp += np.count_nonzero(true * pred)
+            self.tn += np.count_nonzero((true - 1) * (pred - 1))
+            self.fp += np.count_nonzero((true - 1) * pred)
+            self.fn += np.count_nonzero(true * (pred - 1))
+            assert (old_sum + self.batch_size == self.tp + self.tn + self.fp + self.fn)
 
     def calculate_metrics(self, reset_scores=True):
         loss = self.loss / float(self.count)
@@ -120,16 +129,20 @@ class Train:
 
     def update_metrics(self, loss, accuracy, precision, recall, f1, training=True):
         prefix = 'training_' if training else 'validation_'
+        # update
         self.metrics[prefix + 'loss'].append(loss)
-        self.metrics[prefix + 'accuracy'].append(accuracy)
-        self.metrics[prefix + 'precision'].append(precision)
-        self.metrics[prefix + 'recall'].append(recall)
-        self.metrics[prefix + 'f1'].append(f1)
+        if self.classification:
+            self.metrics[prefix + 'accuracy'].append(accuracy)
+            self.metrics[prefix + 'precision'].append(precision)
+            self.metrics[prefix + 'recall'].append(recall)
+            self.metrics[prefix + 'f1'].append(f1)
+        # print
         print prefix + 'loss: ' + str(loss)
-        print prefix + 'accuracy: ' + str(accuracy)
-        print prefix + 'precision: ' + str(precision)
-        print prefix + 'recall: ' + str(recall)
-        print prefix + 'f1: ' + str(f1)
+        if self.classification:
+            print prefix + 'accuracy: ' + str(accuracy)
+            print prefix + 'precision: ' + str(precision)
+            print prefix + 'recall: ' + str(recall)
+            print prefix + 'f1: ' + str(f1)
 
     def train(self):
         with tf.Graph().as_default():

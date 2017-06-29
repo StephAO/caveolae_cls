@@ -3,7 +3,7 @@ import caveolae_cls.nn_layers as nn_layers
 from caveolae_cls.model import Model
 from caveolae_cls.cnn.cnn_model import CNN
 
-class AutoEncoder(Model):
+class CAE(Model):
 
     proj_dim = int(CNN.proj_dim)
 
@@ -19,7 +19,6 @@ class AutoEncoder(Model):
 
     def generate_input_placeholders(self):
         self.input_pl = tf.placeholder(tf.float32, shape=(self.input_shape))
-        self.output_pl = tf.placeholder(tf.float32, shape=(self.input_shape))
         self.is_training = tf.placeholder(tf.bool, shape=())
 
     def generate_model(self, input_pl=None, bn_decay=None, reuse=None):
@@ -49,4 +48,4 @@ class AutoEncoder(Model):
         return self.pred
 
     def generate_loss(self):
-        self.loss = tf.reduce_mean(tf.squared_difference(self.pred, self.output_pl))
+        self.loss = tf.reduce_mean(tf.squared_difference(self.pred, self.input_pl))
