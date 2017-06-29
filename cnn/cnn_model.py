@@ -6,7 +6,7 @@ from caveolae_cls.cnn.cnn_data_handler import CNNDataHandler
 
 class CNN(Model):
 
-    proj_dim = 600
+    proj_dim = 512
 
     def __init__(self, input_data_type, use_softmax=True):
         super(CNN, self).__init__(hp_fn="cnn/hyper_params.yaml")

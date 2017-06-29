@@ -94,6 +94,7 @@ def create_training_validation(blob_dir, target_dir, input_type, validation_rati
     elif input_type == "pointcloud":
         for f in files[:num_val]:
             shutil.copy2(f, validation_dir)
+
         for f in files[num_val:]:
             shutil.copy2(f, training_dir)
 
