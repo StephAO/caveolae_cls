@@ -9,6 +9,7 @@ from pkg_resources import resource_filename
 
 import caveolae_cls.pointnet.pointnet_model as pn
 import caveolae_cls.cnn.cnn_model as cnn
+import caveolae_cls.cae.cae_model as cae
 import caveolae_cls.segmented_mil.segmented_mil_model as segmented_mil
 import caveolae_cls.subregion_mil.subregion_mil_model as subregion_mil
 
@@ -26,7 +27,7 @@ class Train:
             self.model = cnn.CNN(FLAGS.input_type)
             self.classification = True
         elif FLAGS.model == "cae":
-            self.model = cnn.CNN(FLAGS.input_type)
+            self.model = cae.CAE(FLAGS.input_type)
             self.classification = False
         else:
             raise NotImplementedError("%s is not an implemented model" % FLAGS.model)
