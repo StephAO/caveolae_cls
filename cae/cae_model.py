@@ -20,32 +20,33 @@ class CAE(Model):
     def generate_input_placeholders(self):
         self.input_pl = tf.placeholder(tf.float32, shape=(self.input_shape))
         self.is_training = tf.placeholder(tf.bool, shape=())
+        
+    def encode(self, input_pl, input_channels):
+        # Encoder
+        conv1 = nn_layers.conv2d(input_pl, input_channels, 32, (3, 3), 'conv1', is_training=self.is_training)
+        pool1 = nn_layers.max_pool2d(conv1, (2, 2), 'pool1')
+        conv2 = nn_layers.conv2d(pool1, 32, 64, (3, 3), 'conv3', is_training=self.is_training)
+        pool2 = nn_layers.max_pool2d(conv2, (2, 2), 'pool2')
+        conv3 = nn_layers.conv2d(pool2, 64, 128, (3, 3), 'conv4', is_training=self.is_training)
+        pool3 = nn_layers.max_pool2d(conv3, (2, 2), 'pool3')
+        conv4 = nn_layers.conv2d(pool3, 128, 256, (3, 3), 'conv5', is_training=self.is_training)
+        self.features = nn_layers.max_pool2d(conv4, (2, 2), 'pool4')
+
+    def decode(self, input_channels):
+        # Decoder
+        deconv1 = nn_layers.conv2d_transpose(self.features, 256, 128, (2, 2), 'deconv1', is_training=self.is_training)
+        deconv2 = nn_layers.conv2d_transpose(deconv1, 128, 64, (2, 2), 'deconv1', is_training=self.is_training)
+        deconv3 = nn_layers.conv2d_transpose(deconv2, 64, 32, (2, 2), 'deconv1', is_training=self.is_training)
+        self.pred = nn_layers.conv2d_transpose(deconv3, 32, input_channels, (2, 2), 'deconv1',
+                                               is_training=self.is_training)
 
     def generate_model(self, input_pl=None, bn_decay=None, reuse=None):
         input_pl = self.input_pl if input_pl is None else input_pl
-
         input_channels = input_pl.get_shape()[-1].value
-        # batch_size = input_pl.get_shape()[0].value
+        self.encode(input_pl, input_channels)
+        self.decode(input_channels)
 
-        # Encoder
-        conv1 = nn_layers.conv2d(input_pl, input_channels, 32, (3, 3), 'conv1', is_training=self.is_training, reuse=reuse)
-        pool1 = nn_layers.max_pool2d(conv1, (2, 2), 'pool1', reuse=reuse)
-        conv2 = nn_layers.conv2d(pool1, 32, 64, (3, 3), 'conv3', is_training=self.is_training, reuse=reuse)
-        pool2 = nn_layers.max_pool2d(conv2, (2, 2), 'pool2', reuse=reuse)
-        conv3 = nn_layers.conv2d(pool2, 64, 128, (3, 3), 'conv4', is_training=self.is_training, reuse=reuse)
-        pool3 = nn_layers.max_pool2d(conv3, (2, 2), 'pool3', reuse=reuse)
-        conv4 = nn_layers.conv2d(pool3, 128, 256, (3, 3), 'conv5', is_training=self.is_training, reuse=reuse)
-        pool4 = nn_layers.max_pool2d(conv4, (2, 2), 'pool4', reuse=reuse)
-
-        # Decoder
-        deconv1 = nn_layers.conv2d_transpose(pool4, 256, 128, (2,2), 'deconv1', is_training=self.is_training, reuse=reuse)
-        deconv2 = nn_layers.conv2d_transpose(deconv1, 128, 64, (2, 2), 'deconv1', is_training=self.is_training,
-                                             reuse=reuse)
-        deconv3 = nn_layers.conv2d_transpose(deconv2, 64, 32, (2, 2), 'deconv1', is_training=self.is_training,
-                                             reuse=reuse)
-        self.pred = nn_layers.conv2d_transpose(deconv3, 32, input_channels, (2, 2), 'deconv1', is_training=self.is_training,
-                                             reuse=reuse)
         return self.pred
 
     def generate_loss(self):
-        self.loss = tf.reduce_mean(tf.squared_difference(self.pred, self.input_pl))
+        self.loss = tf.reduce_mean(tf.pow(self.pred - self.input_pl, 2))
