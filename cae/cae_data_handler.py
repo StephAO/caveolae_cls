@@ -74,7 +74,7 @@ class CAEDataHandler(DataHandler):
             i += 1
             if i >= self.batch_size:
                 # Yield batch
-                yield self.input
+                yield self.input, None
                 i = 0
                 # num_negatives = 0
 

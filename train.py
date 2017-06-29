@@ -215,8 +215,9 @@ class Train:
         # Shuffle train files
         for data, labels in self.model.get_batch():
             feed_dict = {self.model.input_pl: data,
-                         self.model.label_pl: labels,
                          self.model.is_training: is_training}
+            if self.classification:
+                feed_dict[self.model.label_pl] = labels
             step, _, loss_val, pred_val = sess.run(
                 [ops['step'], ops['train_op'], self.model.loss, self.model.pred], feed_dict=feed_dict)
             # train_writer.add_summary(summary, step)
@@ -241,8 +242,9 @@ class Train:
 
         for data, labels in self.model.get_batch(eval=True):
             feed_dict = {self.model.input_pl: data,
-                         self.model.label_pl: labels,
                          self.model.is_training: is_training}
+            if self.classification:
+                feed_dict[self.model.label_pl] = labels
             step, loss_val, pred_val = sess.run([ops['step'], self.model.loss, self.model.pred], feed_dict=feed_dict)
             if self.model.use_softmax:
                 pred_val = np.argmax(pred_val, axis=1)
