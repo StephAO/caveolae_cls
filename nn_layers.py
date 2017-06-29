@@ -156,7 +156,7 @@ def conv2d_transpose(input_tensor, num_in_feat_maps, num_out_feat_maps, kernel_s
         stride_h, stride_w = stride
         input_shape = input_tensor.get_shape().as_list()
         output_shape = [input_shape[0], input_shape[1] * stride_h, input_shape[2] * stride_w, num_out_feat_maps]
-        outputs = tf.nn.conv2d_transpose(input_tensor, weights, output_shape
+        outputs = tf.nn.conv2d_transpose(input_tensor, weights, output_shape,
                                          [1, stride_h, stride_w, 1],
                                          padding=padding)
         biases = bias_variable('biases', [num_out_feat_maps], value=1e-3)
