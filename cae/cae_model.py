@@ -5,10 +5,8 @@ from caveolae_cls.cnn.cnn_model import CNN
 
 class CAE(Model):
 
-    proj_dim = int(CNN.proj_dim)
-
     def __init__(self, input_data_type):
-        super(CNN, self).__init__(hp_fn="ae/hyper_params.yaml")
+        super(CAE, self).__init__(hp_fn="ae/hyper_params.yaml")
         self.data_handler = None # TODO
         if input_data_type == "multiview" or input_data_type == "projection":
             self.input_shape = [self.hp['BATCH_SIZE'], CNN.proj_dim, CNN.proj_dim, 3]
