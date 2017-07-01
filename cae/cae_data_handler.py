@@ -7,12 +7,12 @@ from caveolae_cls.data_handler import DataHandler
 
 class CAEDataHandler(DataHandler):
 
-    def __init__(self, input_data_type, use_softmax=False):
+    def __init__(self, input_data_type):
         if input_data_type == "multiview" or input_data_type == "projection":
             self.data_key = 'Img3Ch'
             p_file_dir = '/staff/2/sarocaou/data/projection_positive'
             n_file_dir = '/staff/2/sarocaou/data/projection_negative'
-        super(CAEDataHandler, self).__init__(p_file_dir, n_file_dir, use_softmax)
+        super(CAEDataHandler, self).__init__(p_file_dir, n_file_dir)
 
     def load_input_data(self, filename):
         """

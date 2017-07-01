@@ -1,19 +1,22 @@
 import tensorflow as tf
+
 import caveolae_cls.nn_layers as nn_layers
 from caveolae_cls.model import Model
-from caveolae_cls.cnn.cnn_model import CNN
+from caveolae_cls.data_handler import DataHandler as DH
+from caveolae_cls.cae.cae_data_handler import CAEDataHandler
 
 class CAE(Model):
 
     def __init__(self, input_data_type):
         super(CAE, self).__init__(hp_fn="cae/hyper_params.yaml")
-        self.data_handler = None # TODO
+        self.data_handler = CAEDataHandler(input_data_type)
         if input_data_type == "multiview" or input_data_type == "projection":
-            self.input_shape = [self.hp['BATCH_SIZE'], CNN.proj_dim, CNN.proj_dim, 3]
+            self.input_shape = [self.hp['BATCH_SIZE'], DH.proj_dim, DH.proj_dim, 3]
+            self.feature_shape = DH.feature_shape
         self.is_training = None
 
     def get_batch(self, eval=False, type='mixed'):
-        pass
+        self.data_handler.get_batch(self.input_shape, eval=eval, type=type)
 
     def generate_input_placeholders(self):
         self.input_pl = tf.placeholder(tf.float32, shape=(self.input_shape))
@@ -30,13 +33,13 @@ class CAE(Model):
         pool3 = nn_layers.max_pool2d(conv3, (2, 2), 'pool3')
         conv4 = nn_layers.conv2d(pool3, 128, 256, (3, 3), 'conv4', is_training=self.is_training)
         pool4 = nn_layers.max_pool2d(conv4, (2, 2), 'pool4')
-        conv5 = nn_layers.conv2d(pool4, 256, 16, (3, 3), 'conv5', is_training=self.is_training)
+        conv5 = nn_layers.conv2d(pool4, 256, self.feature_shape[-1], (3, 3), 'conv5', is_training=self.is_training)
 
         self.features = nn_layers.max_pool2d(conv5, (2, 2), 'pool5')
 
     def decode(self, in_channels):
         # Decoder
-        deconv1 = nn_layers.conv2d_transpose(self.features, 16, 256, (3, 3), 'deconv1', is_training=self.is_training)
+        deconv1 = nn_layers.conv2d_transpose(self.features, self.feature_shape[-1], 256, (3, 3), 'deconv1', is_training=self.is_training)
         deconv2 = nn_layers.conv2d_transpose(deconv1, 256, 128, (3, 3), 'deconv2', is_training=self.is_training)
         deconv3 = nn_layers.conv2d_transpose(deconv2, 128, 64, (3, 3), 'deconv3', is_training=self.is_training)
         deconv4 = nn_layers.conv2d_transpose(deconv3, 64, 32, (3, 3), 'deconv4', is_training=self.is_training)

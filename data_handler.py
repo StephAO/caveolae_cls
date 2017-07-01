@@ -6,6 +6,9 @@ import os
 class DataHandler:
     __metaclass__ = ABCMeta
 
+    proj_dim = 512
+    feature_shape = [16, 16, 16]
+
     def __init__(self, p_file_dir, n_file_dir, use_softmax=False):
         self.batch_size = None
         self.data = None
