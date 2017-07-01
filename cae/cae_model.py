@@ -1,4 +1,5 @@
 import tensorflow as tf
+from scipy.ndimage.filters import gaussian_filter
 
 import caveolae_cls.nn_layers as nn_layers
 from caveolae_cls.model import Model
@@ -14,7 +15,8 @@ class CAE(Model):
             self.input_shape = [self.hp['BATCH_SIZE'], DH.proj_dim, DH.proj_dim, 3]
             self.feature_shape = DH.feature_shape
         self.is_training = None
-        self.softmax = False
+        self.use_softmax = False
+        self.gauss_loss_var = 5
 
     def get_batch(self, eval=False, type='mixed'):
         return self.data_handler.get_batch(self.input_shape, eval=eval, type=type)
@@ -61,4 +63,6 @@ class CAE(Model):
         return self.pred
 
     def generate_loss(self):
-        self.loss = tf.reduce_mean(tf.pow(self.pred - self.input_pl, 2))
+
+        self.loss = tf.reduce_mean(tf.pow(gaussian_filter(self.pred, 5) - gaussian_filter(self.input_pl, 5), 2))
+        
