@@ -14,9 +14,10 @@ class CAE(Model):
             self.input_shape = [self.hp['BATCH_SIZE'], DH.proj_dim, DH.proj_dim, 3]
             self.feature_shape = DH.feature_shape
         self.is_training = None
+        self.softmax = False
 
     def get_batch(self, eval=False, type='mixed'):
-        self.data_handler.get_batch(self.input_shape, eval=eval, type=type)
+        return self.data_handler.get_batch(self.input_shape, eval=eval, type=type)
 
     def generate_input_placeholders(self):
         self.input_pl = tf.placeholder(tf.float32, shape=(self.input_shape))
