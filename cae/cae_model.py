@@ -63,8 +63,12 @@ class CAE(Model):
         return self.pred
 
     def generate_loss(self):
-        loss1 = gaussian_filter(self.pred, self.gauss_var) - gaussian_filter(self.input_pl, self.gauss_var)
+        loss = 0
+        for batch in xrange(self.input_shape[0]):
+            for channel in xrange(self.input_shape[-1]):
+                loss += gaussian_filter(self.pred[batch, :, :, channel], self.gauss_var) - \
+                        gaussian_filter(self.input_pl[batch, :, :, channel], self.gauss_var)
         # loss2 = gaussian_filter(self.pred, 2 * self.gauss_var) - gaussian_filter(self.input_pl, 2 * self.gauss_var)
-        self.loss = tf.reduce_sum(tf.abs(loss1))
+        self.loss = tf.reduce_sum(tf.abs(loss/self.input_shape[0]))
         # self.loss = tf.reduce_sum(tf.abs(self.pred - self.input_pl))
 
