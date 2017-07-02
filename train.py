@@ -86,8 +86,8 @@ class Train:
             self.decay_step,  # Decay step.
             self.decay_rate,  # Decay rate.
             staircase=True)
-        learning_rate = tf.maximum(learning_rate, 0.00001)  # CLIP THE LEARNING RATE!
-        return learning_rate
+        learning_rate = tf.maximum(learning_rate, 0.0001)  # CLIP THE LEARNING RATE!
+        return self.base_learning_rate # TODO fix this
 
     def get_bn_decay(self, batch):
         bn_momentum = tf.train.exponential_decay(
