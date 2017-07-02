@@ -7,7 +7,7 @@ class DataHandler:
     __metaclass__ = ABCMeta
 
     proj_dim = 512
-    feature_shape = [32, 32, 32]
+    feature_shape = [64, 64, 16]
 
     def __init__(self, p_file_dir, n_file_dir, use_softmax=False):
         self.batch_size = None
