@@ -38,11 +38,11 @@ class CAE(Model):
         pool4 = nn_layers.max_pool2d(conv4, (2, 2), 'pool4')
         conv5 = nn_layers.conv2d(pool4, 256, self.feature_shape[-1], (3, 3), 'conv5', is_training=self.is_training)
 
-        self.features = nn_layers.max_pool2d(conv5, (2, 2), 'pool5')
+        self.features = conv5 # nn_layers.max_pool2d(conv5, (2, 2), 'pool5')
 
     def decode(self, in_channels):
         # Decoder
-        deconv1 = nn_layers.conv2d_transpose(self.features, self.feature_shape[-1], 256, (3, 3), 'deconv1', is_training=self.is_training)
+        deconv1 = nn_layers.conv2d_transpose(self.features, self.feature_shape[-1], 256, (3, 3), 'deconv1', stride=[1, 1], is_training=self.is_training)
         deconv2 = nn_layers.conv2d_transpose(deconv1, 256, 128, (3, 3), 'deconv2', is_training=self.is_training)
         deconv3 = nn_layers.conv2d_transpose(deconv2, 128, 64, (3, 3), 'deconv3', is_training=self.is_training)
         deconv4 = nn_layers.conv2d_transpose(deconv3, 64, 32, (3, 3), 'deconv4', is_training=self.is_training)
@@ -64,7 +64,7 @@ class CAE(Model):
 
     def generate_loss(self):
         loss1 = gaussian_filter(self.pred, self.gauss_var) - gaussian_filter(self.input_pl, self.gauss_var)
-        loss2 = gaussian_filter(self.pred, 2 * self.gauss_var) - gaussian_filter(self.input_pl, 2 * self.gauss_var)
-        self.loss = tf.reduce_sum(tf.abs(loss1 + loss2))
+        # loss2 = gaussian_filter(self.pred, 2 * self.gauss_var) - gaussian_filter(self.input_pl, 2 * self.gauss_var)
+        self.loss = tf.reduce_sum(tf.abs(loss1))
         # self.loss = tf.reduce_sum(tf.abs(self.pred - self.input_pl))
 
