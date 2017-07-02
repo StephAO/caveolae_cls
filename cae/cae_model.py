@@ -16,7 +16,7 @@ class CAE(Model):
             self.feature_shape = DH.feature_shape
         self.is_training = None
         self.use_softmax = False
-        self.gauss_loss_var = 5
+        self.gauss_var = 5
 
     def get_batch(self, eval=False, type='mixed'):
         return self.data_handler.get_batch(self.input_shape, eval=eval, type=type)
@@ -63,6 +63,8 @@ class CAE(Model):
         return self.pred
 
     def generate_loss(self):
-        self.loss = tf.reduce_sum(tf.abs(gaussian_filter(self.pred, self.gauss_loss_var) - gaussian_filter(self.input_pl, self.gauss_loss_var)))
+        self.loss = gaussian_filter(self.pred, self.gauss_var) - gaussian_filter(self.input_pl, self.gauss_var) + \
+                    gaussian_filter(self.pred, 2 * self.gauss_var) - gaussian_filter(self.input_pl, 2 * self.gauss_var)
+        self.loss = tf.reduce_sum(tf.abs(self.loss))
         # self.loss = tf.reduce_sum(tf.abs(self.pred - self.input_pl))
 
