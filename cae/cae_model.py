@@ -34,17 +34,17 @@ class CAE(Model):
         pool2 = nn_layers.max_pool2d(conv2, (2, 2), 'pool2')
         conv3 = nn_layers.conv2d(pool2, 64, 128, (3, 3), 'conv3', is_training=self.is_training)
         pool3 = nn_layers.max_pool2d(conv3, (2, 2), 'pool3')
-        # conv4 = nn_layers.conv2d(pool3, 128, 256, (3, 3), 'conv4', is_training=self.is_training)
-        # pool4 = nn_layers.max_pool2d(pool3, (2, 2), 'pool4')
-        conv5 = nn_layers.conv2d(pool3, 128, self.feature_shape[-1], (3, 3), 'conv5', is_training=self.is_training)
+        conv4 = nn_layers.conv2d(pool3, 128, 256, (3, 3), 'conv4', is_training=self.is_training)
+        pool4 = nn_layers.max_pool2d(conv4, (2, 2), 'pool4')
+        conv5 = nn_layers.conv2d(pool4, 256, self.feature_shape[-1], (3, 3), 'conv5', is_training=self.is_training)
 
-        self.features = nn_layers.max_pool2d(conv5, (2, 2), 'pool5')
+        self.features = conv5 # nn_layers.max_pool2d(conv5, (2, 2), 'pool5')
 
     def decode(self, in_channels):
         # Decoder
-        deconv1 = nn_layers.conv2d_transpose(self.features, self.feature_shape[-1], 128, (3, 3), 'deconv1', is_training=self.is_training)
-        # deconv2 = nn_layers.conv2d_transpose(deconv1, 256, 128, (3, 3), 'deconv2', is_training=self.is_training)
-        deconv3 = nn_layers.conv2d_transpose(deconv1, 128, 64, (3, 3), 'deconv3', is_training=self.is_training)
+        deconv1 = nn_layers.conv2d_transpose(self.features, self.feature_shape[-1], 256, (3, 3), 'deconv1', is_training=self.is_training)
+        deconv2 = nn_layers.conv2d_transpose(deconv1, 256, 128, (3, 3), 'deconv2', is_training=self.is_training)
+        deconv3 = nn_layers.conv2d_transpose(deconv2, 128, 64, (3, 3), 'deconv3', is_training=self.is_training)
         deconv4 = nn_layers.conv2d_transpose(deconv3, 64, 32, (3, 3), 'deconv4', is_training=self.is_training)
         deconv5 = nn_layers.conv2d_transpose(deconv4, 32, in_channels, (3, 3), 'deconv5', is_training=self.is_training)
         self.pred = deconv5
@@ -66,9 +66,9 @@ class CAE(Model):
         loss = 0
         for batch in xrange(self.input_shape[0]):
             for channel in xrange(self.input_shape[-1]):
-                loss += gaussian_filter(self.pred[batch, :, :, channel], self.gauss_var) - \
-                        gaussian_filter(self.input_pl[batch, :, :, channel], self.gauss_var)
+                loss += tf.reduce_sum(tf.abs(gaussian_filter(self.pred[batch, :, :, channel], self.gauss_var) -
+                                             gaussian_filter(self.input_pl[batch, :, :, channel], self.gauss_var)))
         # loss2 = gaussian_filter(self.pred, 2 * self.gauss_var) - gaussian_filter(self.input_pl, 2 * self.gauss_var)
-        self.loss = tf.reduce_sum(tf.abs(loss)) / self.input_shape[0]
+        self.loss = loss / self.input_shape[0]
         # self.loss = tf.reduce_sum(tf.abs(self.pred - self.input_pl))
 
