@@ -38,7 +38,7 @@ class CAE(Model):
         pool4 = nn_layers.max_pool2d(conv4, (2, 2), 'pool4')
         conv5 = nn_layers.conv2d(pool4, 256, self.feature_shape[-1], (3, 3), 'conv5', is_training=self.is_training)
 
-        self.features = conv5 # nn_layers.max_pool2d(conv5, (2, 2), 'pool5')
+        self.features = nn_layers.max_pool2d(conv5, (2, 2), 'pool5')
 
     def decode(self, in_channels):
         # Decoder
