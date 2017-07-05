@@ -38,15 +38,33 @@ def graph_metrics(metrics):
     plt.show()
 
 
+def graph_projections(data):
+    for input_projections, output_projections in data.values():
+        fig = plt.figure()
+        for i in xrange(3):
+            a = fig.add_subplot(3, 2, 2 * i + 1)
+            imgplot = plt.imshow(input_projections[:, :, i])
+            a.set_title('Input')
+            a = fig.add_subplot(3, 2, (i + 1) * 2)
+            imgplot = plt.imshow(output_projections[:, :, i])
+            a.set_title('Output')
+        plt.show()
+
+
 def main():
+    use_metrics = False
     dir_ = resource_filename('caveolae_cls', '/data')
     if len(sys.argv) < 2:
         print "Must input pickle filename"
         exit(1)
     fn = os.path.join(dir_, sys.argv[1])
-    model_info, hyper_params, metrics = pickle.load(open(fn, "rb"))
-    print hyper_params
-    graph_metrics(metrics)
+    if use_metrics:
+        model_info, hyper_params, metrics = pickle.load(open(fn, "rb"))
+        print hyper_params
+        graph_metrics(metrics)
+    else:
+        graph_projections(pickle.load(open(fn, "rb")))
+
 
 if __name__ == "__main__":
     main()

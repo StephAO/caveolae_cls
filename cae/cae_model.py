@@ -75,7 +75,7 @@ class CAE(Model):
         gaussian_kernel[:, :, 0, 0] = gaussian
         self.gaussian_kernel = tf.constant(gaussian_kernel, dtype=tf.float32)
 
-    def generate_loss(self):
+    def euclidean_loss(self):
         self.generate_gaussian_kernel()
         loss = 0.
         for i in xrange(self.pred.get_shape().as_list()[-1]):
@@ -84,7 +84,17 @@ class CAE(Model):
             pred_gauss = tf.nn.conv2d(pred_input, self.gaussian_kernel, [1, 1, 1, 1], "SAME")
             real_gauss = tf.nn.conv2d(real_input, self.gaussian_kernel, [1, 1, 1, 1], "SAME")
             loss += tf.reduce_sum(tf.abs(pred_gauss - real_gauss))
-        self.loss = loss
+        return loss
+
+    def jaccard_index(self):
+        intersection = tf.reduce_sum(self.pred * self.input_pl)
+        union = tf.reduce_sum(self.pred) + tf.reduce_sum(self.input_pl) - intersection
+        iou = intersection / union
+        return iou
+
+    def generate_loss(self):
+
+        self.loss = 1. - self.jaccard_index()
 
     # def generate_loss(self):
     #     loss = 0

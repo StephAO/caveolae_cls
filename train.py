@@ -1,4 +1,5 @@
 import argparse
+import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pickle
@@ -198,7 +199,7 @@ class Train:
                 print '-' * 10 + ' Epoch: %03d' % epoch + '-' * 10
                 sys.stdout.flush()
 
-                self.train_one_epoch(sess, ops)
+                self.train_one_epoch(sess, ops, epoch)
                 self.eval_one_epoch(sess, ops)
 
                 # Save the variables to disk.
@@ -209,9 +210,13 @@ class Train:
 
         pickle.dump([vars(self.flags), self.model.hp, self.metrics], open(self.data_fn, "wb"))
 
-    def train_one_epoch(self, sess, ops):
+    def train_one_epoch(self, sess, ops, epoch):
         """ ops: dict mapping from string to tf ops """
         is_training = True
+        ### REMOVE ### TODO
+        # n = 0
+        # cae_plotting_data = {}
+        ##############
         # Shuffle train files
         for data, labels in self.model.get_batch():
             feed_dict = {self.model.input_pl: data,
@@ -221,6 +226,13 @@ class Train:
             step, _, loss_val, pred_val = sess.run(
                 [ops['step'], ops['train_op'], self.model.loss, self.model.pred], feed_dict=feed_dict)
             # train_writer.add_summary(summary, step)
+
+            ### REMOVE ### TODO
+            # if n % 100 == 0:
+            #     cae_plotting_data[n] = (data[0], pred_val[0])
+            # n += 1
+            ##############
+
             if self.model.use_softmax:
                 pred_val = np.argmax(pred_val, axis=1)
                 labels = np.argmax(labels, axis=1)
@@ -232,6 +244,11 @@ class Train:
 
         loss, accuracy, precision, recall, f1 = self.calculate_metrics()
         self.update_metrics(loss, accuracy, precision, recall, f1, training=True)
+
+        ### REMOVE ### TODO
+        # filename = os.path.join(self.data_dir, str(epoch) + ".p")
+        # pickle.dump(cae_plotting_data, open(filename, "wb"))
+        ##############
 
     def eval_one_epoch(self, sess, ops):
         """ ops: dict mapping from string to tf ops """
