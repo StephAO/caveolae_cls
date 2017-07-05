@@ -1,3 +1,4 @@
+import numpy as np
 import tensorflow as tf
 from scipy.ndimage.filters import gaussian_filter
 
@@ -17,6 +18,8 @@ class CAE(Model):
         self.is_training = None
         self.use_softmax = False
         self.gauss_var = 10
+        self.pred = None
+        self.gaussian_kernel = None
 
     def get_batch(self, eval=False, type='mixed'):
         return self.data_handler.get_batch(self.input_shape, eval=eval, type=type)
@@ -42,11 +45,13 @@ class CAE(Model):
 
     def decode(self, in_channels):
         # Decoder
-        deconv1 = nn_layers.conv2d_transpose(self.features, self.feature_shape[-1], 256, (3, 3), 'deconv1', is_training=self.is_training)
+        deconv1 = nn_layers.conv2d_transpose(self.features, self.feature_shape[-1], 256, (3, 3), 'deconv1',
+                                             is_training=self.is_training)
         deconv2 = nn_layers.conv2d_transpose(deconv1, 256, 128, (3, 3), 'deconv2', is_training=self.is_training)
         deconv3 = nn_layers.conv2d_transpose(deconv2, 128, 64, (3, 3), 'deconv3', is_training=self.is_training)
         deconv4 = nn_layers.conv2d_transpose(deconv3, 64, 32, (3, 3), 'deconv4', is_training=self.is_training)
-        deconv5 = nn_layers.conv2d_transpose(deconv4, 32, in_channels, (3, 3), 'deconv5', is_training=self.is_training)
+        deconv5 = nn_layers.conv2d_transpose(deconv4, 32, in_channels, (3, 3), 'deconv5', is_training=self.is_training,
+                                             activation_fn=tf.nn.sigmoid)
         self.pred = deconv5
 
         if self.pred.get_shape().as_list() != self.input_shape:
@@ -62,13 +67,32 @@ class CAE(Model):
 
         return self.pred
 
+    def generate_gaussian_kernel(self):
+        gaussian = np.zeros([9, 9])
+        gaussian[4][4] = 1
+        gaussian = gaussian_filter(gaussian, 1)
+        gaussian_kernel = np.zeros([9, 9, 1, 1])
+        gaussian_kernel[:, :, 0, 0] = gaussian
+        self.gaussian_kernel = tf.constant(gaussian_kernel, dtype=tf.float32)
+
     def generate_loss(self):
-        loss = 0
-        for batch in xrange(self.input_shape[0]):
-            for channel in xrange(self.input_shape[-1]):
-                loss += tf.reduce_sum(tf.abs(gaussian_filter(self.pred[batch, :, :, channel], self.gauss_var) -
-                                             gaussian_filter(self.input_pl[batch, :, :, channel], self.gauss_var)))
-        # loss2 = gaussian_filter(self.pred, 2 * self.gauss_var) - gaussian_filter(self.input_pl, 2 * self.gauss_var)
-        self.loss = loss / self.input_shape[0]
+        self.generate_gaussian_kernel()
+        loss = 0.
+        for i in xrange(self.pred.get_shape().as_list()[-1]):
+            pred_input = self.pred[:, :, :, i:i + 1]
+            real_input = self.input_pl[:, :, :, i:i + 1]
+            pred_gauss = tf.nn.conv2d(pred_input, self.gaussian_kernel, [1, 1, 1, 1], "SAME")
+            real_gauss = tf.nn.conv2d(real_input, self.gaussian_kernel, [1, 1, 1, 1], "SAME")
+            loss += tf.reduce_sum(tf.abs(pred_gauss - real_gauss))
+        self.loss = loss
+
+    # def generate_loss(self):
+    #     loss = 0
+    #     for batch in xrange(self.input_shape[0]):
+    #         for channel in xrange(self.input_shape[-1]):
+    #             loss += tf.reduce_sum(tf.abs(self.pred[batch, :, :, channel] -
+    #                                          self.input_pl[batch, :, :, channel]))
+    #     # loss2 = gaussian_filter(self.pred, 2 * self.gauss_var) - gaussian_filter(self.input_pl, 2 * self.gauss_var)
+    #     self.loss = loss
         # self.loss = tf.reduce_sum(tf.abs(self.pred - self.input_pl))
 
