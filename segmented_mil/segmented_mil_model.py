@@ -7,7 +7,7 @@ from itertools import izip
 
 class SegmentedMIL(Model):
 
-    def __init__(self, model, num_instance_per_bag=10):
+    def __init__(self, model, num_instance_per_bag=1000):
         super(SegmentedMIL, self).__init__(hp_fn="segmented_mil/hyper_params.yaml")
         self.model = model
         self.hp = self.model.hp
@@ -56,6 +56,7 @@ class SegmentedMIL(Model):
                      (1.0 - self.label_pl) * tf.log(1.0 - self.pred + 1e-12))
             cross_entropy = tf.reduce_sum(simple_loss, reduction_indices=[1])
             self.loss = tf.reduce_mean(cross_entropy)
+        self.val_loss = self.loss
 
         self.model.generate_loss()
 

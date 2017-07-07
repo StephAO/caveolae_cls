@@ -79,6 +79,7 @@ class Train:
         self.fn = 0
         self.count = 0
         self.loss = 0.
+        self.val_loss = 0.
 
     def get_learning_rate(self, batch):
         learning_rate = tf.train.exponential_decay(
@@ -107,10 +108,12 @@ class Train:
         self.fn = 0
         self.count = 0
         self.loss = 0.
+        self.val_loss = 0.
 
-    def update_scores(self, loss, true, pred):
+    def update_scores(self, loss, true, pred, val_loss=0):
         self.loss += float(loss / float(self.batch_size))
         self.count += 1
+        self.val_loss += float(val_loss / float(self.batch_size))
         if self.classification:
             old_sum = self.tp + self.tn + self.fp + self.fn
             self.tp += np.count_nonzero(true * pred)
@@ -121,15 +124,16 @@ class Train:
 
     def calculate_metrics(self, reset_scores=True):
         loss = self.loss / float(self.count)
+        val_loss = self.val_loss / float(self.count)
         accuracy = 0. if self.tp + self.tn == 0 else (self.tp + self.tn) / float(self.tp + self.tn + self.fp + self.fn)
         precision = 0. if self.tp == 0 else self.tp / float(self.tp + self.fp)
         recall = 0. if self.tp == 0 else self.tp / float(self.tp + self.fn)
         f1 = 0. if precision + recall == 0 else 2 * precision * recall / (precision + recall)
         if reset_scores:
             self.reset_scores()
-        return loss, accuracy, precision, recall, f1
+        return loss, accuracy, precision, recall, f1, val_loss
 
-    def update_metrics(self, loss, accuracy, precision, recall, f1, training=True):
+    def update_metrics(self, loss, accuracy, precision, recall, f1, val_loss=0, training=True):
         prefix = 'training_' if training else 'validation_'
         # update
         self.metrics[prefix + 'loss'].append(loss)
@@ -140,6 +144,8 @@ class Train:
             self.metrics[prefix + 'f1'].append(f1)
         # print
         print prefix + 'loss: ' + str(loss)
+        if not training:
+            print prefix + 'val_loss: ' + str(val_loss)
         if self.classification:
             print prefix + 'accuracy: ' + str(accuracy)
             print prefix + 'precision: ' + str(precision)
@@ -214,8 +220,8 @@ class Train:
         """ ops: dict mapping from string to tf ops """
         is_training = True
         ### REMOVE ### TODO
-        # n = 0
-        # cae_plotting_data = {}
+        n = 0
+        cae_plotting_data = {}
         ##############
         # Shuffle train files
         for data, labels in self.model.get_batch():
@@ -223,14 +229,14 @@ class Train:
                          self.model.is_training: is_training}
             if self.classification:
                 feed_dict[self.model.label_pl] = labels
-            step, _, loss_val, pred_val = sess.run(
+            step, _, loss, pred_val = sess.run(
                 [ops['step'], ops['train_op'], self.model.loss, self.model.pred], feed_dict=feed_dict)
             # train_writer.add_summary(summary, step)
 
             ### REMOVE ### TODO
-            # if n % 100 == 0:
-            #     cae_plotting_data[n] = (data[0], pred_val[0])
-            # n += 1
+            if n % 100 == 0:
+                cae_plotting_data[n] = (data[0], pred_val[0])
+            n += 1
             ##############
 
             if self.model.use_softmax:
@@ -240,14 +246,14 @@ class Train:
                 np.rint(pred_val)
             pred_val = pred_val.flatten()
             # calculate metrics
-            self.update_scores(loss_val, labels, pred_val)
+            self.update_scores(loss, labels, pred_val)
 
-        loss, accuracy, precision, recall, f1 = self.calculate_metrics()
+        loss, accuracy, precision, recall, f1, _ = self.calculate_metrics()
         self.update_metrics(loss, accuracy, precision, recall, f1, training=True)
 
         ### REMOVE ### TODO
-        # filename = os.path.join(self.data_dir, str(epoch) + ".p")
-        # pickle.dump(cae_plotting_data, open(filename, "wb"))
+        filename = os.path.join(self.data_dir, str(epoch) + ".p")
+        pickle.dump(cae_plotting_data, open(filename, "wb"))
         ##############
 
     def eval_one_epoch(self, sess, ops):
@@ -262,7 +268,7 @@ class Train:
                          self.model.is_training: is_training}
             if self.classification:
                 feed_dict[self.model.label_pl] = labels
-            step, loss_val, pred_val = sess.run([ops['step'], self.model.loss, self.model.pred], feed_dict=feed_dict)
+            step, loss, val_loss, pred_val = sess.run([ops['step'], self.model.loss, self.model.val_loss, self.model.pred], feed_dict=feed_dict)
             if self.model.use_softmax:
                 pred_val = np.argmax(pred_val, axis=1)
                 labels = np.argmax(labels, axis=1)
@@ -270,10 +276,10 @@ class Train:
                 np.rint(pred_val)
             pred_val = pred_val.flatten()
             # calculate metrics
-            self.update_scores(loss_val, labels, pred_val)
+            self.update_scores(loss, labels, pred_val, val_loss=val_loss)
 
-        loss, accuracy, precision, recall, f1 = self.calculate_metrics()
-        self.update_metrics(loss, accuracy, precision, recall, f1, training=False)
+        loss, accuracy, precision, recall, f1, val_loss = self.calculate_metrics()
+        self.update_metrics(loss, accuracy, precision, recall, f1, val_loss=val_loss, training=False)
 
         if self.mil is not None:
             self.model = full_model

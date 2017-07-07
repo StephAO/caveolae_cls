@@ -41,12 +41,12 @@ class CAE(Model):
         pool4 = nn_layers.max_pool2d(conv4, (2, 2), 'pool4')
         conv5 = nn_layers.conv2d(pool4, 256, self.feature_shape[-1], (3, 3), 'conv5', is_training=self.is_training)
 
-        self.features = nn_layers.max_pool2d(conv5, (2, 2), 'pool5')
+        self.features = conv5 # nn_layers.max_pool2d(conv5, (2, 2), 'pool5')
 
     def decode(self, in_channels):
         # Decoder
         deconv1 = nn_layers.conv2d_transpose(self.features, self.feature_shape[-1], 256, (3, 3), 'deconv1',
-                                             is_training=self.is_training)
+                                             stride=[1, 1], is_training=self.is_training)
         deconv2 = nn_layers.conv2d_transpose(deconv1, 256, 128, (3, 3), 'deconv2', is_training=self.is_training)
         deconv3 = nn_layers.conv2d_transpose(deconv2, 128, 64, (3, 3), 'deconv3', is_training=self.is_training)
         deconv4 = nn_layers.conv2d_transpose(deconv3, 64, 32, (3, 3), 'deconv4', is_training=self.is_training)
@@ -81,6 +81,7 @@ class CAE(Model):
         for i in xrange(self.pred.get_shape().as_list()[-1]):
             pred_input = self.pred[:, :, :, i:i + 1]
             real_input = self.input_pl[:, :, :, i:i + 1]
+            # loss += tf.reduce_sum(tf.abs(pred_input - 10000. * real_input))
             pred_gauss = tf.nn.conv2d(pred_input, self.gaussian_kernel, [1, 1, 1, 1], "SAME")
             real_gauss = tf.nn.conv2d(real_input, self.gaussian_kernel, [1, 1, 1, 1], "SAME")
             loss += tf.reduce_sum(tf.abs(pred_gauss - real_gauss))
@@ -92,9 +93,16 @@ class CAE(Model):
         iou = intersection / union
         return iou
 
+    def dice_index(self):
+        intersection = tf.reduce_sum(self.pred * self.input_pl)
+        union = tf.reduce_sum(self.pred) + tf.reduce_sum(self.input_pl)
+        iou = intersection / union
+        return iou
+
     def generate_loss(self):
 
-        self.loss = 1. - self.jaccard_index()
+        self.loss = 1 / self.dice_index() + (tf.reduce_sum(self.pred) - tf.reduce_sum(self.input_pl))
+        self.val_loss = self.euclidean_loss()
 
     # def generate_loss(self):
     #     loss = 0

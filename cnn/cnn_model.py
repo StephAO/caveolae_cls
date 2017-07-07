@@ -63,6 +63,7 @@ class CNN(Model):
                      (1.0 - self.label_pl) * tf.log(1.0 - self.pred + 1e-12))
             cross_entropy = tf.reduce_sum(simple_loss, reduction_indices=[1])
             self.loss = tf.reduce_mean(cross_entropy)
+        self.val_loss = self.loss
 
     def get_batch(self, eval=False, type='mixed'):
         return self.data_handler.get_batch(self.input_shape, eval=eval,

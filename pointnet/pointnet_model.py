@@ -140,6 +140,7 @@ class PointNet(Model):
         tf.summary.scalar('mat loss', mat_diff_loss)
 
         self.loss = classify_loss + mat_diff_loss * self.reg_weight
+        self.val_loss = self.loss
 
     def get_batch(self, eval=False, type='mixed'):
         return self.data_handler.get_batch([self.hp['BATCH_SIZE'],

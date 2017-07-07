@@ -43,10 +43,10 @@ def graph_projections(data):
         fig = plt.figure()
         for i in xrange(3):
             a = fig.add_subplot(3, 2, 2 * i + 1)
-            imgplot = plt.imshow(input_projections[:, :, i])
+            imgplot = plt.imshow(input_projections[:, :, i], cmap='gray')
             a.set_title('Input')
             a = fig.add_subplot(3, 2, (i + 1) * 2)
-            imgplot = plt.imshow(output_projections[:, :, i])
+            imgplot = plt.imshow(output_projections[:, :, i], cmap='gray')
             a.set_title('Output')
         plt.show()
 
