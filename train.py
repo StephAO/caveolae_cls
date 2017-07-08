@@ -253,7 +253,8 @@ class Train:
 
         ### REMOVE ### TODO
         filename = os.path.join(self.data_dir, str(epoch) + ".p")
-        pickle.dump(cae_plotting_data, open(filename, "wb"))
+        with open(filename, "wb") as f:
+            pickle.dump(cae_plotting_data, f)
         ##############
 
     def eval_one_epoch(self, sess, ops):

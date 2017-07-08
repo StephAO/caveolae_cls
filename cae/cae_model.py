@@ -94,14 +94,22 @@ class CAE(Model):
         return iou
 
     def dice_index(self):
-        intersection = tf.reduce_sum(self.pred * self.input_pl)
-        union = tf.reduce_sum(self.pred) + tf.reduce_sum(self.input_pl)
-        iou = intersection / union
-        return iou
+        sum_dice_index = 0.
+        for i in xrange(self.pred.get_shape().as_list()[-1]):
+            intersection = tf.reduce_sum(self.pred[:, :, :, i:i + 1] * self.input_pl[:, :, :, i:i + 1])
+            union = tf.reduce_sum(self.pred) + tf.reduce_sum(self.input_pl)
+            sum_dice_index += intersection / union
+        return sum_dice_index
+
+    def diff_num_points(self):
+        loss = 0.
+        for i in xrange(self.pred.get_shape().as_list()[-1]):
+            loss += tf.abs(tf.reduce_sum(self.pred[:, :, :, i:i + 1]) - tf.reduce_sum(self.input_pl[:, :, :, i:i + 1]))
+        return loss
 
     def generate_loss(self):
 
-        self.loss = 1 / self.dice_index() + (tf.reduce_sum(self.pred) - tf.reduce_sum(self.input_pl))
+        self.loss = 0.1 * self.euclidean_loss() + 0.3 * self.diff_num_points() + 0.6 * 1. / self.dice_index()
         self.val_loss = self.euclidean_loss()
 
     # def generate_loss(self):
