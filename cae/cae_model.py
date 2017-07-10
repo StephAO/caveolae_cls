@@ -51,7 +51,7 @@ class CAE(Model):
         deconv3 = nn_layers.conv2d_transpose(deconv2, 128, 64, (3, 3), 'deconv3', is_training=self.is_training)
         deconv4 = nn_layers.conv2d_transpose(deconv3, 64, 32, (3, 3), 'deconv4', is_training=self.is_training)
         deconv5 = nn_layers.conv2d_transpose(deconv4, 32, in_channels, (3, 3), 'deconv5', is_training=self.is_training,
-                                             activation_fn=tf.nn.relu)
+                                             activation_fn=tf.nn.sigmoid)
         self.pred = deconv5
 
         if self.pred.get_shape().as_list() != self.input_shape:
@@ -80,7 +80,7 @@ class CAE(Model):
         loss = 0.
         for i in xrange(self.pred.get_shape().as_list()[-1]):
             pred_input = self.pred[:, :, :, i:i + 1]
-            real_input = self.input_pl[:, :, :, i:i + 1] * 100
+            real_input = self.input_pl[:, :, :, i:i + 1]
             # loss += tf.reduce_sum(tf.abs(pred_input - 10000. * real_input))
             pred_gauss = tf.nn.conv2d(pred_input, self.gaussian_kernel, [1, 1, 1, 1], "SAME")
             real_gauss = tf.nn.conv2d(real_input, self.gaussian_kernel, [1, 1, 1, 1], "SAME")
@@ -114,8 +114,8 @@ class CAE(Model):
             num_channels = float(self.pred.get_shape().as_list()[-1])
             channel_dice = 0.
             for j in xrange(num_channels):
-                intersection = tf.reduce_sum((self.pred[i, :, :, :] / 100.) * self.input_pl[i, :, :, :])
-                union = tf.reduce_sum(self.pred[i, :, :, :]) / 100. + tf.reduce_sum(self.input_pl[i, :, :, :])
+                intersection = tf.reduce_sum(self.pred[i, :, :, :] * self.input_pl[i, :, :, :])
+                union = tf.reduce_sum(self.pred[i, :, :, :]) + tf.reduce_sum(self.input_pl[i, :, :, :])
                 channel_dice += intersection / union
             sum_dice_index += channel_dice / num_channels
         return sum_dice_index
