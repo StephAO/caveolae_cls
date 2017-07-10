@@ -111,9 +111,13 @@ class CAE(Model):
     def dice_index(self):
         sum_dice_index = 0.
         for i in xrange(self.hp['BATCH_SIZE']):
-            intersection = tf.reduce_sum((self.pred[i, :, :, :] / 100.) * self.input_pl[i, :, :, :])
-            union = tf.reduce_sum(self.pred[i, :, :, :]) / 100. + tf.reduce_sum(self.input_pl[i, :, :, :])
-            sum_dice_index += intersection / union
+            num_channels = float(self.pred.get_shape().as_list()[-1])
+            channel_dice = 0.
+            for j in xrange(num_channels):
+                intersection = tf.reduce_sum((self.pred[i, :, :, :] / 100.) * self.input_pl[i, :, :, :])
+                union = tf.reduce_sum(self.pred[i, :, :, :]) / 100. + tf.reduce_sum(self.input_pl[i, :, :, :])
+                channel_dice += intersection / union
+            sum_dice_index += channel_dice / num_channels
         return sum_dice_index
 
     def diff_num_points(self):
