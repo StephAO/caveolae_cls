@@ -51,7 +51,7 @@ class CAE(Model):
         deconv3 = nn_layers.conv2d_transpose(deconv2, 128, 64, (3, 3), 'deconv3', is_training=self.is_training)
         deconv4 = nn_layers.conv2d_transpose(deconv3, 64, 32, (3, 3), 'deconv4', is_training=self.is_training)
         deconv5 = nn_layers.conv2d_transpose(deconv4, 32, in_channels, (3, 3), 'deconv5', is_training=self.is_training,
-                                             activation_fn=tf.nn.sigmoid)
+                                             activation_fn=tf.nn.relu)
         self.pred = deconv5
 
         if self.pred.get_shape().as_list() != self.input_shape:
@@ -80,11 +80,26 @@ class CAE(Model):
         loss = 0.
         for i in xrange(self.pred.get_shape().as_list()[-1]):
             pred_input = self.pred[:, :, :, i:i + 1]
+            real_input = self.input_pl[:, :, :, i:i + 1] * 100
+            # loss += tf.reduce_sum(tf.abs(pred_input - 10000. * real_input))
+            pred_gauss = tf.nn.conv2d(pred_input, self.gaussian_kernel, [1, 1, 1, 1], "SAME")
+            real_gauss = tf.nn.conv2d(real_input, self.gaussian_kernel, [1, 1, 1, 1], "SAME")
+            diff = tf.reduce_sum(tf.abs(real_gauss - pred_gauss))
+            loss += diff
+        return loss
+
+    def euclidean_loss_alt(self):
+        self.generate_gaussian_kernel()
+        loss = 0.
+        for i in xrange(self.pred.get_shape().as_list()[-1]):
+            pred_input = self.pred[:, :, :, i:i + 1]
             real_input = self.input_pl[:, :, :, i:i + 1]
             # loss += tf.reduce_sum(tf.abs(pred_input - 10000. * real_input))
             pred_gauss = tf.nn.conv2d(pred_input, self.gaussian_kernel, [1, 1, 1, 1], "SAME")
             real_gauss = tf.nn.conv2d(real_input, self.gaussian_kernel, [1, 1, 1, 1], "SAME")
-            loss += tf.reduce_sum(tf.abs(pred_gauss - real_gauss))
+            missed = tf.reduce_sum(tf.nn.relu(real_gauss - pred_gauss))
+            extras = tf.reduce_sum(tf.nn.relu(pred_gauss - real_gauss))
+            loss += missed + 0.001 * extras # tf.cond(diff < 0., lambda: tf.reduce_sum(tf.abs(diff)), lambda: tf.constant(0.))
         return loss
 
     def jaccard_index(self):
@@ -95,21 +110,21 @@ class CAE(Model):
 
     def dice_index(self):
         sum_dice_index = 0.
-        for i in xrange(self.pred.get_shape().as_list()[-1]):
-            intersection = tf.reduce_sum(self.pred[:, :, :, i:i + 1] * self.input_pl[:, :, :, i:i + 1])
-            union = tf.reduce_sum(self.pred) + tf.reduce_sum(self.input_pl)
+        for i in xrange(self.hp['BATCH_SIZE']):
+            intersection = tf.reduce_sum((self.pred[i, :, :, :] / 100.) * self.input_pl[i, :, :, :])
+            union = tf.reduce_sum(self.pred[i, :, :, :]) / 100. + tf.reduce_sum(self.input_pl[i, :, :, :])
             sum_dice_index += intersection / union
         return sum_dice_index
 
     def diff_num_points(self):
         loss = 0.
-        for i in xrange(self.pred.get_shape().as_list()[-1]):
-            loss += tf.abs(tf.reduce_sum(self.pred[:, :, :, i:i + 1]) - tf.reduce_sum(self.input_pl[:, :, :, i:i + 1]))
+        for i in xrange(self.pred.get_shape().as_list()[-1]): # for each channel
+            diff = tf.reduce_sum(self.input_pl[:, :, :, i:i + 1]) - tf.reduce_sum(self.pred[:, :, :, i:i + 1])
+            loss += tf.cond(diff > 0., lambda: tf.abs(diff), lambda: tf.constant(0.))
         return loss
 
     def generate_loss(self):
-
-        self.loss = 0.1 * self.euclidean_loss() + 0.3 * self.diff_num_points() + 0.6 * 1. / self.dice_index()
+        self.loss = (self.hp['BATCH_SIZE'] - self.dice_index()) # + self.euclidean_loss_alt() / 10000 #0.1 * self.euclidean_loss() + 0.3 * self.diff_num_points() + 0.6 * 1. / self.dice_index()
         self.val_loss = self.euclidean_loss()
 
     # def generate_loss(self):

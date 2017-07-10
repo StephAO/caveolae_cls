@@ -199,14 +199,14 @@ class Train:
             ops = {'train_op': train_op, 'step': batch}
 
             print "Initialization evaluation"
-            self.eval_one_epoch(sess, ops)
+            self.eval_one_epoch(sess, ops, -1)
 
             for epoch in range(self.max_epoch):
                 print '-' * 10 + ' Epoch: %03d' % epoch + '-' * 10
                 sys.stdout.flush()
 
                 self.train_one_epoch(sess, ops, epoch)
-                self.eval_one_epoch(sess, ops)
+                self.eval_one_epoch(sess, ops, epoch)
 
                 # Save the variables to disk.
                 # if epoch % 10 == 0:
@@ -219,10 +219,6 @@ class Train:
     def train_one_epoch(self, sess, ops, epoch):
         """ ops: dict mapping from string to tf ops """
         is_training = True
-        ### REMOVE ### TODO
-        n = 0
-        cae_plotting_data = {}
-        ##############
         # Shuffle train files
         for data, labels in self.model.get_batch():
             feed_dict = {self.model.input_pl: data,
@@ -232,12 +228,6 @@ class Train:
             step, _, loss, pred_val = sess.run(
                 [ops['step'], ops['train_op'], self.model.loss, self.model.pred], feed_dict=feed_dict)
             # train_writer.add_summary(summary, step)
-
-            ### REMOVE ### TODO
-            if n % 100 == 0:
-                cae_plotting_data[n] = (data[0], pred_val[0])
-            n += 1
-            ##############
 
             if self.model.use_softmax:
                 pred_val = np.argmax(pred_val, axis=1)
@@ -251,18 +241,17 @@ class Train:
         loss, accuracy, precision, recall, f1, _ = self.calculate_metrics()
         self.update_metrics(loss, accuracy, precision, recall, f1, training=True)
 
-        ### REMOVE ### TODO
-        filename = os.path.join(self.data_dir, str(epoch) + ".p")
-        with open(filename, "wb") as f:
-            pickle.dump(cae_plotting_data, f)
-        ##############
-
-    def eval_one_epoch(self, sess, ops):
+    def eval_one_epoch(self, sess, ops, epoch):
         """ ops: dict mapping from string to tf ops """
         if self.mil is not None:
             full_model = self.model
             self.model = self.model.model
         is_training = False
+
+        ### REMOVE ### TODO
+        n = 0
+        cae_plotting_data = {}
+        ##############
 
         for data, labels in self.model.get_batch(eval=True):
             feed_dict = {self.model.input_pl: data,
@@ -270,6 +259,13 @@ class Train:
             if self.classification:
                 feed_dict[self.model.label_pl] = labels
             step, loss, val_loss, pred_val = sess.run([ops['step'], self.model.loss, self.model.val_loss, self.model.pred], feed_dict=feed_dict)
+
+            ### REMOVE ### TODO
+            if n % 10 == 0:
+                cae_plotting_data[n] = (data[0], pred_val[0])
+            n += 1
+            ##############
+
             if self.model.use_softmax:
                 pred_val = np.argmax(pred_val, axis=1)
                 labels = np.argmax(labels, axis=1)
@@ -281,6 +277,12 @@ class Train:
 
         loss, accuracy, precision, recall, f1, val_loss = self.calculate_metrics()
         self.update_metrics(loss, accuracy, precision, recall, f1, val_loss=val_loss, training=False)
+
+        ### REMOVE ### TODO
+        filename = os.path.join(self.data_dir, str(epoch) + ".p")
+        with open(filename, "wb") as f:
+            pickle.dump(cae_plotting_data, f)
+        ##############
 
         if self.mil is not None:
             self.model = full_model

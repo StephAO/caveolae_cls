@@ -1,20 +1,28 @@
 import numpy as np
 import scipy.io as sio
 import sys
+import tensorflow as tf
 
 from caveolae_cls.data_handler import DataHandler
+import caveolae_cls.cae.cae_model as cae
 
 
-class CAEDataHandler(DataHandler):
+class CAE_CNN_DataHandler(DataHandler):
 
-    def __init__(self, input_data_type):
+    def __init__(self, input_data_type, input_shape, use_softmax=False):
+        self.input_data_type = input_data_type
         if input_data_type == "multiview" or input_data_type == "projection":
             self.data_key = 'Img3Ch'
-            # p_file_dir = '/staff/2/sarocaou/data/projection_positive'
-            # n_file_dir = '/staff/2/sarocaou/data/projection_negative'
-            p_file_dir = '/home/stephane/sfu_data/projection_positive'
-            n_file_dir = '/home/stephane/sfu_data/projection_negative'
-        super(CAEDataHandler, self).__init__(p_file_dir, n_file_dir)
+            p_file_dir = '/staff/2/sarocaou/data/projection_positive'
+            n_file_dir = '/staff/2/sarocaou/data/projection_negative'
+
+        super(CAE_CNN_DataHandler, self).__init__(p_file_dir, n_file_dir, use_softmax)
+        self.cae = cae.CAE(input_data_type)
+        self.input_shape = input_shape
+        self.features = None
+        self.replicator = None
+        self.cae_pl = tf.placeholder(tf.float32, shape=(input_shape))
+
 
     def load_input_data(self, filename):
         """
@@ -29,6 +37,12 @@ class CAEDataHandler(DataHandler):
             label = l
         return data, label
 
+    def generate_cae(self):
+        if self.features is None or self.replicator is None:
+            in_channels = self.input_shape[-1]
+            self.features = self.cae.encode(self.cae_pl, in_channels)
+            self.replicator = self.cae.decode(in_channels)
+
     def get_batch(self, batch_shape, eval=False, type='mixed'):
         """
         Generator that will return batches
@@ -36,8 +50,11 @@ class CAEDataHandler(DataHandler):
         :param batch_shape: Expected shape of a single batch
         :return: Generates batches
         """
-        self.batch_size = batch_shape[0]
-        self.input = np.zeros(batch_shape)
+        sess = tf.get_default_session()
+
+        batch_size = batch_shape[0]
+        data = np.zeros(batch_shape)
+        labels = np.zeros([batch_size, 2] if self.use_softmax else batch_size)
 
         files = []
 
@@ -71,13 +88,13 @@ class CAEDataHandler(DataHandler):
             #     if num_negatives >= int(max_ratio_n * self.batch_size):
             #         continue
             #     num_negatives += 1
-            self.input[i] = d
+            data[i] = d
+            labels[i] = l
 
             i += 1
             if i >= self.batch_size:
                 # Yield batch
-                yield self.input, None
+                data = sess.run([self.features], feed_dict={self.cae_pl: data})
+                yield data, labels
                 i = 0
                 # num_negatives = 0
-
-
