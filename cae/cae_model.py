@@ -103,21 +103,27 @@ class CAE(Model):
         return loss
 
     def jaccard_index(self):
-        intersection = tf.reduce_sum(self.pred * self.input_pl)
-        union = tf.reduce_sum(self.pred) + tf.reduce_sum(self.input_pl) - intersection
-        iou = intersection / union
-        return iou
+        sum_dice_index = 0.
+        for i in xrange(self.hp['BATCH_SIZE']):
+            num_channels = self.pred.get_shape().as_list()[-1]
+            channel_dice = 0.
+            for j in xrange(num_channels):
+                intersection = tf.reduce_sum(self.pred[i, :, :, :] * self.input_pl[i, :, :, :])
+                union = tf.reduce_sum(self.pred[i, :, :, :]) + tf.reduce_sum(self.input_pl[i, :, :, :]) - intersection
+                channel_dice += intersection / union
+            sum_dice_index += channel_dice / float(num_channels)
+        return sum_dice_index
 
     def dice_index(self):
         sum_dice_index = 0.
         for i in xrange(self.hp['BATCH_SIZE']):
-            num_channels = float(self.pred.get_shape().as_list()[-1])
+            num_channels = self.pred.get_shape().as_list()[-1]
             channel_dice = 0.
             for j in xrange(num_channels):
                 intersection = tf.reduce_sum(self.pred[i, :, :, :] * self.input_pl[i, :, :, :])
                 union = tf.reduce_sum(self.pred[i, :, :, :]) + tf.reduce_sum(self.input_pl[i, :, :, :])
                 channel_dice += intersection / union
-            sum_dice_index += channel_dice / num_channels
+            sum_dice_index += channel_dice / float(num_channels)
         return sum_dice_index
 
     def diff_num_points(self):
@@ -128,7 +134,7 @@ class CAE(Model):
         return loss
 
     def generate_loss(self):
-        self.loss = (self.hp['BATCH_SIZE'] - self.dice_index()) # + self.euclidean_loss_alt() / 10000 #0.1 * self.euclidean_loss() + 0.3 * self.diff_num_points() + 0.6 * 1. / self.dice_index()
+        self.loss = (self.hp['BATCH_SIZE'] - self.jaccard_index()) # + self.euclidean_loss_alt() / 10000 #0.1 * self.euclidean_loss() + 0.3 * self.diff_num_points() + 0.6 * 1. / self.dice_index()
         self.val_loss = self.euclidean_loss()
 
     # def generate_loss(self):
