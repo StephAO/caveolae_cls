@@ -6,8 +6,6 @@ import sys
 
 from caveolae_cls.data_handler import DataHandler
 from caveolae_cls.pointnet.pointnet_data_handler import PointNetDataHandler
-from caveolae_cls.cnn.cnn_model import CNN
-
 
 def upsample(files, target_dir, num_new_samples=None):
     """Given a directory of 3D point clouds, upsamples"""
@@ -39,16 +37,16 @@ def upsample(files, target_dir, num_new_samples=None):
 def convert(files, target_dir):
     for f in files:
         data = sio.loadmat(f)
-        blob = data["blob"]
+        blob = data["simple"]
         proj = blob_to_projections(blob)
         data["Img3Ch"] = proj
-        del data["blob"]
+        del data["simple"]
         new_file_path = os.path.join(target_dir, f.split('/')[-1])
         sio.savemat(new_file_path, data, do_compression=True)
 
 
 def blob_to_projections(blob):
-    proj_dim = int(CNN.proj_dim)
+    proj_dim = int(DataHandler.proj_dim)
     proj = np.zeros([proj_dim, proj_dim, 3])
 
     center = proj_dim / 2.

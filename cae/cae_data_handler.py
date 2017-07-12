@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.io as sio
+from scipy import ndimage
 import sys
 
 from caveolae_cls.data_handler import DataHandler
@@ -10,10 +11,12 @@ class CAEDataHandler(DataHandler):
     def __init__(self, input_data_type):
         if input_data_type == "multiview" or input_data_type == "projection":
             self.data_key = 'Img3Ch'
-            p_file_dir = '/staff/2/sarocaou/data/projection_positive'
-            n_file_dir = '/staff/2/sarocaou/data/projection_negative'
+            # p_file_dir = '/staff/2/sarocaou/data/projection_positive'
+            # n_file_dir = '/staff/2/sarocaou/data/projection_negative'
             # p_file_dir = '/home/stephane/sfu_data/projection_positive'
             # n_file_dir = '/home/stephane/sfu_data/projection_negative'
+            p_file_dir = '/staff/2/sarocaou/data/simple_projection'
+            n_file_dir = '/staff/2/sarocaou/data/simple_projection'
         super(CAEDataHandler, self).__init__(p_file_dir, n_file_dir)
 
     def load_input_data(self, filename):
@@ -21,7 +24,7 @@ class CAEDataHandler(DataHandler):
         Load point cloud data and label given a file
         """
         f = sio.loadmat(filename)
-        data = f[self.data_key][:]
+        data = f[self.data_key][:] # ndimage.distance_transform_edt(1 - f[self.data_key][:])
         label = DataHandler.get_label_from_filename(filename)
         if self.use_softmax:
             l = np.zeros([2])

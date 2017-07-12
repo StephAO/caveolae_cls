@@ -20,6 +20,7 @@ class CAE(Model):
         self.gauss_var = 10
         self.pred = None
         self.gaussian_kernel = None
+        self.use_gauss = True
 
     def get_batch(self, eval=False, type='mixed'):
         return self.data_handler.get_batch(self.input_shape, eval=eval, type=type)
@@ -82,9 +83,9 @@ class CAE(Model):
             pred_input = self.pred[:, :, :, i:i + 1]
             real_input = self.input_pl[:, :, :, i:i + 1]
             # loss += tf.reduce_sum(tf.abs(pred_input - 10000. * real_input))
-            pred_gauss = tf.nn.conv2d(pred_input, self.gaussian_kernel, [1, 1, 1, 1], "SAME")
-            real_gauss = tf.nn.conv2d(real_input, self.gaussian_kernel, [1, 1, 1, 1], "SAME")
-            diff = tf.reduce_sum(tf.abs(real_gauss - pred_gauss))
+            # pred_gauss = tf.nn.conv2d(pred_input, self.gaussian_kernel, [1, 1, 1, 1], "SAME")
+            # real_gauss = tf.nn.conv2d(real_input, self.gaussian_kernel, [1, 1, 1, 1], "SAME")
+            diff = tf.reduce_sum(tf.pow(pred_input - real_input, 2))
             loss += diff
         return loss
 
@@ -103,26 +104,69 @@ class CAE(Model):
         return loss
 
     def jaccard_index(self):
+        self.generate_gaussian_kernel()
         sum_dice_index = 0.
         for i in xrange(self.hp['BATCH_SIZE']):
             num_channels = self.pred.get_shape().as_list()[-1]
             channel_dice = 0.
             for j in xrange(num_channels):
-                intersection = tf.reduce_sum(self.pred[i, :, :, :] * self.input_pl[i, :, :, :])
-                union = tf.reduce_sum(self.pred[i, :, :, :]) + tf.reduce_sum(self.input_pl[i, :, :, :]) - intersection
+                pred_input = self.pred[i:i + 1, :, :, j:j + 1]
+                real_input = self.input_pl[i:i + 1, :, :, j:j + 1]
+
+                pred_gauss = tf.nn.conv2d(pred_input, self.gaussian_kernel, [1, 1, 1, 1], "SAME")
+                real_gauss = tf.nn.conv2d(real_input, self.gaussian_kernel, [1, 1, 1, 1], "SAME")
+                # pred_gauss /= tf.maximum(tf.reduce_max(pred_gauss), tf.constant(1e-6))
+                # real_gauss /= tf.maximum(tf.reduce_max(real_gauss), tf.constant(1e-6))
+
+                intersection = tf.reduce_sum(pred_gauss * real_gauss)
+                union = tf.reduce_sum(pred_gauss) + tf.reduce_sum(real_gauss) - intersection
                 channel_dice += intersection / union
             sum_dice_index += channel_dice / float(num_channels)
         return sum_dice_index
 
+    def smooth_f1(self):
+        if self.use_gauss:
+            self.generate_gaussian_kernel()
+        sum_f1 = 0.
+        for i in xrange(self.hp['BATCH_SIZE']):
+            num_channels = self.pred.get_shape().as_list()[-1]
+            channel_f1 = 0.
+            for j in xrange(num_channels):
+                pred_input = self.pred[i:i + 1, :, :, j:j + 1]
+                real_input = self.input_pl[i:i + 1, :, :, j:j + 1]
+
+                if self.use_gauss:
+                    pred_input = tf.nn.conv2d(pred_input, self.gaussian_kernel, [1, 1, 1, 1], "SAME")
+                    real_input = tf.nn.conv2d(real_input, self.gaussian_kernel, [1, 1, 1, 1], "SAME")
+
+                tp = tf.reduce_sum(pred_input * real_input)
+                fp = tf.reduce_sum(pred_input * (tf.constant(1.) - real_input))
+                fn = tf.reduce_sum((tf.constant(1.) - pred_input) * real_input)
+                f1 = (tf.constant(2.0) * tp) / (tf.constant(2.0) * tp() + fp + fn + tf.constant(1e-6))
+                channel_f1 += f1
+
+            sum_f1 += channel_f1 / float(num_channels)
+        return sum_f1
+
     def dice_index(self):
+        self.generate_gaussian_kernel()
         sum_dice_index = 0.
         for i in xrange(self.hp['BATCH_SIZE']):
             num_channels = self.pred.get_shape().as_list()[-1]
             channel_dice = 0.
             for j in xrange(num_channels):
-                intersection = tf.reduce_sum(self.pred[i, :, :, :] * self.input_pl[i, :, :, :])
-                union = tf.reduce_sum(self.pred[i, :, :, :]) + tf.reduce_sum(self.input_pl[i, :, :, :])
+                pred_input = self.pred[i:i + 1, :, :, j:j + 1]
+                real_input = self.input_pl[i:i + 1, :, :, j:j + 1]
+
+                pred_gauss = tf.nn.conv2d(pred_input, self.gaussian_kernel, [1, 1, 1, 1], "SAME")
+                real_gauss = tf.nn.conv2d(real_input, self.gaussian_kernel, [1, 1, 1, 1], "SAME")
+                pred_gauss /= np.max(pred_gauss)
+                real_gauss /= np.max(real_gauss)
+
+                intersection = tf.reduce_sum(pred_gauss * real_gauss)
+                union = tf.reduce_sum(pred_gauss) + tf.reduce_sum(real_gauss)
                 channel_dice += intersection / union
+
             sum_dice_index += channel_dice / float(num_channels)
         return sum_dice_index
 
@@ -134,7 +178,7 @@ class CAE(Model):
         return loss
 
     def generate_loss(self):
-        self.loss = (self.hp['BATCH_SIZE'] - self.jaccard_index()) # + self.euclidean_loss_alt() / 10000 #0.1 * self.euclidean_loss() + 0.3 * self.diff_num_points() + 0.6 * 1. / self.dice_index()
+        self.loss = (self.hp['BATCH_SIZE'] - self.smooth_f1()) # self.euclidean_loss() #
         self.val_loss = self.euclidean_loss()
 
     # def generate_loss(self):
