@@ -21,6 +21,7 @@ class CAE_CNN_DataHandler(DataHandler):
         self.input_shape = input_shape
         self.features = None
         self.replicator = None
+        self.sess = None
 
     def load_input_data(self, filename):
         """
@@ -51,8 +52,6 @@ class CAE_CNN_DataHandler(DataHandler):
         :param batch_shape: Expected shape of a single batch
         :return: Generates batches
         """
-        sess = tf.get_default_session()
-
         batch_size = batch_shape[0]
         data = np.zeros(batch_shape)
         labels = np.zeros([batch_size, 2] if self.use_softmax else batch_size)
@@ -95,7 +94,7 @@ class CAE_CNN_DataHandler(DataHandler):
             i += 1
             if i >= self.batch_size:
                 # Yield batch
-                data = sess.run([self.features], feed_dict={self.cae_pl: data})
+                data = self.sess.run([self.features], feed_dict={self.cae_pl: data})
                 yield data, labels
                 i = 0
                 # num_negatives = 0
