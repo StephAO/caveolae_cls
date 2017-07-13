@@ -27,6 +27,7 @@ class CAE_CNN(Model):
         self.data_handler.generate_cae()
         input_pl = self.input_pl if input_pl is None else input_pl
         self.classifier = self.cnn.generate_model_small(input_pl=input_pl, bn_decay=bn_decay, reuse=reuse)
+        self.pred = self.cnn.pred
 
     def generate_loss(self):
         """ pred: B*NUM_CLASSES,

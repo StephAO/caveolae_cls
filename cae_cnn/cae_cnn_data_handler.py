@@ -94,7 +94,7 @@ class CAE_CNN_DataHandler(DataHandler):
             i += 1
             if i >= self.batch_size:
                 # Yield batch
-                data = self.sess.run([self.cae.features], feed_dict={self.cae_pl: data})
-                yield data, labels
+                features = self.sess.run([self.cae.features], feed_dict={self.cae_pl: data})
+                yield features, labels
                 i = 0
                 # num_negatives = 0
