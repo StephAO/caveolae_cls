@@ -18,7 +18,7 @@ class CAE_CNN(Model):
         self.cnn = cnn.CNN(input_data_type, use_softmax=use_softmax)
 
     def generate_input_placeholders(self):
-        self.data_handler.generate_placeholders()
+        self.data_handler.generate_cae_placeholders()
         self.input_pl = tf.placeholder(tf.float32, shape=(DH.feature_shape))
         self.label_pl = tf.placeholder(tf.float32, shape=[self.hp['BATCH_SIZE'], 2] if self.use_softmax else self.hp['BATCH_SIZE'])
         self.is_training = tf.placeholder(tf.bool, shape=())
