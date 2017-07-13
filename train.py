@@ -11,6 +11,7 @@ from pkg_resources import resource_filename
 import caveolae_cls.pointnet.pointnet_model as pn
 import caveolae_cls.cnn.cnn_model as cnn
 import caveolae_cls.cae.cae_model as cae
+import caveolae_cls.cae_cnn.cae_cnn_model as cae_cnn
 import caveolae_cls.segmented_mil.segmented_mil_model as segmented_mil
 import caveolae_cls.subregion_mil.subregion_mil_model as subregion_mil
 
@@ -30,6 +31,9 @@ class Train:
         elif FLAGS.model == "cae":
             self.model = cae.CAE(FLAGS.input_type)
             self.classification = False
+        elif FLAGS.model == "cae_cnn":
+            self.model =cae_cnn.CAE_CNN(FLAGS.input_type)
+            self.classification = True
         else:
             raise NotImplementedError("%s is not an implemented model" % FLAGS.model)
 
@@ -88,8 +92,8 @@ class Train:
             self.decay_step,  # Decay step.
             self.decay_rate,  # Decay rate.
             staircase=True)
-        learning_rate = tf.maximum(learning_rate, 0.0001)  # CLIP THE LEARNING RATE!
-        return self.base_learning_rate # TODO fix this
+        learning_rate = tf.maximum(learning_rate, 0.00001)  # CLIP THE LEARNING RATE!
+        return learning_rate # self.base_learning_rate # TODO fix this
 
     def get_bn_decay(self, batch):
         bn_momentum = tf.train.exponential_decay(
