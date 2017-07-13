@@ -31,10 +31,17 @@ class CAE_CNN(Model):
     def generate_loss(self):
         """ pred: B*NUM_CLASSES,
             label: B, """
-        self.cae.generate_loss()
-        self.cnn.generate_loss()
-        self.loss = self.cae.loss + self.cnn.loss
-        self.val_loss = self.cnn.loss
+        # self.cae.generate_loss()
+        if self.use_softmax:
+            logistic_losses = tf.nn.softmax_cross_entropy_with_logits(logits=self.cnn.logits, labels=self.label_pl,
+                                                                      name='sigmoid_xentropy')
+            self.loss = tf.reduce_mean(logistic_losses)
+        else:
+            simple_loss = -(self.label_pl * tf.log(self.pred + 1e-12) +
+                     (1.0 - self.label_pl) * tf.log(1.0 - self.pred + 1e-12))
+            cross_entropy = tf.reduce_sum(simple_loss, reduction_indices=[1])
+            self.loss = tf.reduce_mean(cross_entropy)
+        self.val_loss = self.loss
 
     def get_batch(self, eval=False, type='mixed'):
         return self.data_handler.get_batch(self.input_shape, eval=eval,
