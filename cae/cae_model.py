@@ -51,8 +51,7 @@ class CAE(Model):
         deconv2 = nn_layers.conv2d_transpose(deconv1, 256, 128, (3, 3), 'deconv2', is_training=self.is_training)
         deconv3 = nn_layers.conv2d_transpose(deconv2, 128, 64, (3, 3), 'deconv3', is_training=self.is_training)
         deconv4 = nn_layers.conv2d_transpose(deconv3, 64, 32, (3, 3), 'deconv4', is_training=self.is_training)
-        deconv5 = nn_layers.conv2d_transpose(deconv4, 32, in_channels, (3, 3), 'deconv5', is_training=self.is_training,
-                                             activation_fn=tf.nn.sigmoid)
+        deconv5 = nn_layers.conv2d_transpose(deconv4, 32, in_channels, (3, 3), 'deconv5', is_training=self.is_training)
         self.pred = deconv5
 
         if self.pred.get_shape().as_list() != self.input_shape:
@@ -142,7 +141,7 @@ class CAE(Model):
                 tp = tf.reduce_sum(pred_input * real_input)
                 fp = tf.reduce_sum(pred_input * (tf.constant(1.) - real_input))
                 fn = tf.reduce_sum((tf.constant(1.) - pred_input) * real_input)
-                f1 = (tf.constant(2.0) * tp) / (tf.constant(2.0) * tp() + fp + fn + tf.constant(1e-6))
+                f1 = (tf.constant(2.0) * tp) / (tf.constant(2.0) * tp + fp + fn + tf.constant(1e-6))
                 channel_f1 += f1
 
             sum_f1 += channel_f1 / float(num_channels)
@@ -178,7 +177,7 @@ class CAE(Model):
         return loss
 
     def generate_loss(self):
-        self.loss = (self.hp['BATCH_SIZE'] - self.smooth_f1()) # self.euclidean_loss() #
+        self.loss = self.euclidean_loss() #
         self.val_loss = self.euclidean_loss()
 
     # def generate_loss(self):
