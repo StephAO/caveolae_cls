@@ -21,8 +21,6 @@ class CAE_CNN_DataHandler(DataHandler):
         self.input_shape = input_shape
         self.features = None
         self.replicator = None
-        self.cae_pl = tf.placeholder(tf.float32, shape=(input_shape))
-
 
     def load_input_data(self, filename):
         """
@@ -36,6 +34,9 @@ class CAE_CNN_DataHandler(DataHandler):
             l[label] = 1
             label = l
         return data, label
+
+    def generate_cae_placeholders(self):
+        self.cae_pl = tf.placeholder(tf.float32, shape=(self.input_shape))
 
     def generate_cae(self):
         if self.features is None or self.replicator is None:
