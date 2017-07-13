@@ -42,8 +42,8 @@ class CAE_CNN_DataHandler(DataHandler):
     def generate_cae(self):
         if self.features is None or self.replicator is None:
             in_channels = self.input_shape[-1]
-            self.features = self.cae.encode(self.cae_pl, in_channels)
-            self.replicator = self.cae.decode(in_channels)
+            self.cae.encode(self.cae_pl, in_channels)
+            self.cae.decode(in_channels)
 
     def get_batch(self, batch_shape, eval=False, type='mixed'):
         """
@@ -94,7 +94,7 @@ class CAE_CNN_DataHandler(DataHandler):
             i += 1
             if i >= self.batch_size:
                 # Yield batch
-                data = self.sess.run([self.features], feed_dict={self.cae_pl: data})
+                data = self.sess.run([self.cae.features], feed_dict={self.cae_pl: data})
                 yield data, labels
                 i = 0
                 # num_negatives = 0

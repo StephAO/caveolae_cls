@@ -201,7 +201,7 @@ class Train:
             sess.run(init, {self.model.is_training: True})
 
             if self.flags.model == "cae_cnn":
-                self.model.sess = sess
+                self.model.data_handler.sess = sess
 
             ops = {'train_op': train_op, 'step': batch}
 
