@@ -32,7 +32,7 @@ class Train:
             self.model = cae.CAE(FLAGS.input_type)
             self.classification = False
         elif FLAGS.model == "cae_cnn":
-            self.model =cae_cnn.CAE_CNN(FLAGS.input_type)
+            self.model = cae_cnn.CAE_CNN(FLAGS.input_type)
             self.classification = True
         else:
             raise NotImplementedError("%s is not an implemented model" % FLAGS.model)

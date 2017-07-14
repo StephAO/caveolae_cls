@@ -45,6 +45,9 @@ class CAE_CNN_DataHandler(DataHandler):
             self.cae.encode(self.cae_pl, in_channels)
             self.cae.decode(in_channels)
 
+            self.features = self.cae.features
+            self.replicator = self.cae.pred
+
     def get_batch(self, batch_shape, eval=False, type='mixed'):
         """
         Generator that will return batches
@@ -94,7 +97,7 @@ class CAE_CNN_DataHandler(DataHandler):
             i += 1
             if i >= self.batch_size:
                 # Yield batch
-                features = self.sess.run([self.cae.features], feed_dict={self.cae_pl: data})
+                features = self.sess.run(self.cae.features, feed_dict={self.cae_pl: data})
                 yield features, labels
                 i = 0
                 # num_negatives = 0

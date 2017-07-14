@@ -18,22 +18,20 @@ class SegmentedMIL(Model):
         self.use_softmax = self.model.use_softmax
 
     def generate_input_placeholders(self):
-        self.input_pl_shape = [self.hp['BATCH_SIZE']] + [self.num_instances_per_bag] + self.model.input_shape[1:]
+        self.input_pl_shape = [self.num_instances_per_bag] + self.model.input_shape[1:]
         self.input_pl = tf.placeholder(tf.float32, shape=self.input_pl_shape)
-        self.label_pl = tf.placeholder(tf.float32, shape=[self.hp['BATCH_SIZE'], 2] if self.use_softmax else self.hp['BATCH_SIZE'])
+        self.label_pl = tf.placeholder(tf.float32, shape=[2] if self.use_softmax else ())
         self.model.generate_input_placeholders()
         self.is_training = self.model.is_training
 
     def generate_model(self, bn_decay=None):
-        i_preds = [None] * self.num_instances_per_bag
-        for i in xrange(self.num_instances_per_bag):
-            reuse = True if i > 0 else None
-            instance = self.model.generate_model(input_pl=self.input_pl[:, i, :, :, :], bn_decay=bn_decay, reuse=reuse)
-            i_preds[i] = tf.expand_dims(instance, 1)
-        instances = tf.concat(i_preds, 1)
-        print instances
-        # Aggregation
-        self.pred = tf.reduce_mean(instances, axis=1)
+        # i_preds = [None] * self.num_instances_per_bag
+        self.model.generate_model(input_pl=self.input_pl, bn_decay=bn_decay, reuse=False)
+        # i_preds[i] = tf.expand_dims(self.model.pred, 1)
+        # instances = tf.concat(i_preds, 1)
+        # print instances
+        ##### Aggregation #####
+        self.pred = tf.reduce_mean(self.model.pred, axis=1)
         # self.features = tf.concat([tf.reduce_mean(instances, axis=1, keep_dims=True), tf.reduce_prod(instances, axis=1, keep_dims=True),
         #                            tf.reduce_max(instances, axis=1, keep_dims=True), tf.reduce_min(instances, axis=1, keep_dims=True),
         #                            tf.reduce_sum(instances, axis=1, keep_dims=True)], 1, name='mil_features')
@@ -53,7 +51,7 @@ class SegmentedMIL(Model):
             self.loss = tf.reduce_mean(loss_l)
         else:
             simple_loss = -(self.label_pl * tf.log(self.pred + 1e-12) +
-                     (1.0 - self.label_pl) * tf.log(1.0 - self.pred + 1e-12))
+                            (1.0 - self.label_pl) * tf.log(1.0 - self.pred + 1e-12))
             cross_entropy = tf.reduce_sum(simple_loss, reduction_indices=[1])
             self.loss = tf.reduce_mean(cross_entropy)
         self.val_loss = self.loss
@@ -61,16 +59,14 @@ class SegmentedMIL(Model):
         self.model.generate_loss()
 
     def get_batch(self, eval=False):
-        data = np.zeros(self.input_pl_shape)
-        labels = np.zeros([self.hp['BATCH_SIZE'], 2] if self.use_softmax else self.hp['BATCH_SIZE'])
-        i = 0
-        for pos, neg in izip(self.model.data_handler.get_batch(self.input_pl_shape[1:], eval=eval, type='positive'),
-                             self.model.data_handler.get_batch(self.input_pl_shape[1:], eval=eval, type='negative')):
-            data[i] = pos[0]
-            labels[i] = np.array([0, 1]) if self.use_softmax else 1
-            data[i + 1] = neg[0]
-            labels[i + 1] = np.array([1, 0]) if self.use_softmax else 0
-            i += 2
-            if i >= self.hp['BATCH_SIZE']:
-                yield data, labels
-                i = 0
+        # data = np.zeros(self.input_pl_shape)
+        # labels = np.zeros([2] if self.use_softmax else ())
+        for pos, neg in izip(self.model.data_handler.get_batch(self.input_pl_shape, eval=eval, type='positive'),
+                             self.model.data_handler.get_batch(self.input_pl_shape, eval=eval, type='negative')):
+            data = pos[0]
+            labels = np.array([0, 1]) if self.use_softmax else 1
+            yield data, labels
+
+            data = neg[0]
+            labels = np.array([1, 0]) if self.use_softmax else 0
+            yield data, labels
