@@ -13,11 +13,13 @@ class CAE_CNN_DataHandler(DataHandler):
         self.input_data_type = input_data_type
         if input_data_type == "multiview" or input_data_type == "projection":
             self.data_key = 'Img3Ch'
-            p_file_dir = '/staff/2/sarocaou/data/projection_positive'
-            n_file_dir = '/staff/2/sarocaou/data/projection_negative'
+            # p_file_dir = '/staff/2/sarocaou/data/projection_positive'
+            # n_file_dir = '/staff/2/sarocaou/data/projection_negative'
+            p_file_dir = '/home/stephane/sfu_data/projection_positive'
+            n_file_dir = '/home/stephane/sfu_data/projection_negative'
 
         super(CAE_CNN_DataHandler, self).__init__(p_file_dir, n_file_dir, use_softmax)
-        self.cae = cae.CAE(input_data_type)
+        self.cae = cae.CAE(input_data_type, own_data_handler=False)
         self.input_shape = input_shape
         self.features = None
         self.replicator = None
@@ -56,7 +58,12 @@ class CAE_CNN_DataHandler(DataHandler):
         :return: Generates batches
         """
         batch_size = batch_shape[0]
-        data = np.zeros(batch_shape)
+        sub_batch_size = self.input_shape[0]
+        print batch_size, sub_batch_size
+        assert batch_size % sub_batch_size == 0
+
+        data = np.zeros([sub_batch_size] + self.input_shape[1:])
+        features = np.zeros(batch_shape)
         labels = np.zeros([batch_size, 2] if self.use_softmax else batch_size)
 
         files = []
@@ -91,13 +98,15 @@ class CAE_CNN_DataHandler(DataHandler):
             #     if num_negatives >= int(max_ratio_n * self.batch_size):
             #         continue
             #     num_negatives += 1
-            data[i] = d
+            data[i % sub_batch_size] = d
             labels[i] = l
 
             i += 1
-            if i >= self.batch_size:
+            if i % sub_batch_size == 0:
                 # Yield batch
-                features = self.sess.run(self.cae.features, feed_dict={self.cae_pl: data})
+                features[i - sub_batch_size: i] = self.sess.run(self.cae.features, feed_dict={self.cae_pl: data})
+
+            if i >= batch_size:
                 yield features, labels
                 i = 0
                 # num_negatives = 0

@@ -9,9 +9,10 @@ from caveolae_cls.cae.cae_data_handler import CAEDataHandler
 
 class CAE(Model):
 
-    def __init__(self, input_data_type):
+    def __init__(self, input_data_type, own_data_handler=True):
         super(CAE, self).__init__(hp_fn="cae/hyper_params.yaml")
-        self.data_handler = CAEDataHandler(input_data_type)
+        if own_data_handler:
+            self.data_handler = CAEDataHandler(input_data_type)
         if input_data_type == "multiview" or input_data_type == "projection":
             self.input_shape = [self.hp['BATCH_SIZE'], DH.proj_dim, DH.proj_dim, 3]
             self.feature_shape = DH.feature_shape
@@ -32,6 +33,7 @@ class CAE(Model):
     def encode(self, input_pl, in_channels):
         # Encoder
         # pool0 = nn_layers.max_pool2d(input_pl, (2,2), 'pool0')
+        self.input = input_pl
         conv1 = nn_layers.conv2d(input_pl, in_channels, 32, (3, 3), 'conv1', is_training=self.is_training)
         pool1 = nn_layers.max_pool2d(conv1, (2, 2), 'pool1')
         conv2 = nn_layers.conv2d(pool1, 32, 64, (3, 3), 'conv2', is_training=self.is_training)
@@ -54,7 +56,7 @@ class CAE(Model):
         deconv5 = nn_layers.conv2d_transpose(deconv4, 32, in_channels, (3, 3), 'deconv5', is_training=self.is_training)
         self.pred = deconv5
 
-        if self.pred.get_shape().as_list() != self.input_shape:
+        if self.pred.get_shape().as_list() != self.input.get_shape().as_list():
             print "Predicted shape:", str(self.pred.get_shape().as_list())
             print "Input shape:", str(self.input_shape)
             raise TypeError("Output shape not the same as input shape")

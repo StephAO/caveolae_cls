@@ -9,18 +9,18 @@ from caveolae_cls.model import Model
 class CAE_CNN(Model):
 
     def __init__(self, input_data_type, use_softmax=True):
-        super(CAE_CNN, self).__init__(hp_fn="cnn/hyper_params.yaml")
+        super(CAE_CNN, self).__init__(hp_fn="cae_cnn/hyper_params.yaml")
         self.input_shape = [self.hp['BATCH_SIZE']] + DH.feature_shape  #
         if input_data_type == "multiview" or input_data_type == "projection":
             self.cae_input_shape = [self.hp['BATCH_SIZE'], DH.proj_dim, DH.proj_dim, 3]
         self.data_handler = CAE_CNN_DataHandler(input_data_type, self.cae_input_shape, use_softmax=use_softmax)
         self.is_training = None
         self.use_softmax = use_softmax
-        self.cnn = cnn.CNN(input_data_type, use_softmax=use_softmax)
+        self.cnn = cnn.CNN(input_data_type, use_softmax=use_softmax, own_data_handler=False)
 
     def generate_input_placeholders(self):
         self.data_handler.generate_cae_placeholders()
-        self.input_pl = tf.placeholder(tf.float32, shape=())
+        self.input_pl = tf.placeholder(tf.float32, shape=[self.hp['BATCH_SIZE']] + DH.feature_shape)
         self.label_pl = tf.placeholder(tf.float32, shape=[self.hp['BATCH_SIZE'], 2] if self.use_softmax else self.hp['BATCH_SIZE'])
         self.is_training = tf.placeholder(tf.bool, shape=())
 
@@ -46,5 +46,5 @@ class CAE_CNN(Model):
         self.val_loss = self.loss
 
     def get_batch(self, eval=False, type='mixed'):
-        return self.data_handler.get_batch(self.cae_input_shape, eval=eval,
+        return self.data_handler.get_batch(self.input_shape, eval=eval,
                                            type=type)

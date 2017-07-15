@@ -46,6 +46,7 @@ class Train:
             self.mil = "sub"
         else:
             self.mil = None
+
         # Other params
         self.gpu_index = FLAGS.gpu
         self.optimizer = FLAGS.optimizer
@@ -64,12 +65,17 @@ class Train:
         self.bn_decay_decay_step = float(self.decay_step)
         self.bn_decay_clip = 0.99
 
+        # Saving params
         self.data_dir = resource_filename('caveolae_cls', '/data')
         if not os.path.exists(self.data_dir):
             os.mkdir(self.data_dir)
         self.data_fn = FLAGS.input_type + '_' + FLAGS.model + '_' + ((self.mil + '_') if self.mil is not None else '') \
                        + time.strftime("%Y-%m-%d_%H:%M")
         self.data_fn = os.path.join(self.data_dir, self.data_fn)
+        self.model_name = FLAGS.model_name
+        self.model_save_path = os.path.join(self.data_dir, "saved_models", self.flags.model)
+        if not os.path.exists(self.model_save_path):
+            os.makedirs(self.model_save_path)
 
         self.metrics = {
             'training_loss': [None], 'validation_loss': [],
@@ -124,7 +130,7 @@ class Train:
             self.tn += np.count_nonzero((true - 1) * (pred - 1))
             self.fp += np.count_nonzero((true - 1) * pred)
             self.fn += np.count_nonzero(true * (pred - 1))
-            assert (old_sum + self.batch_size == self.tp + self.tn + self.fp + self.fn)
+            assert (old_sum + self.model.hp['BATCH_SIZE'] == self.tp + self.tn + self.fp + self.fn)
 
     def calculate_metrics(self, reset_scores=True):
         loss = self.loss / float(self.count)
@@ -179,7 +185,7 @@ class Train:
                 train_op = optimizer.minimize(self.model.loss, global_step=batch)
 
                 # Add ops to save and restore all the variables.
-                # saver = tf.train.Saver()
+                saver = tf.train.Saver()
 
             # Create a session
             config = tf.ConfigProto()
@@ -200,6 +206,9 @@ class Train:
 
             sess.run(init, {self.model.is_training: True})
 
+            if self.flags.load_model == "True":
+                saver.restore(sess, tf.train.latest_checkpoint(self.model_save_path))
+
             if self.flags.model == "cae_cnn":
                 self.model.data_handler.sess = sess
 
@@ -216,12 +225,14 @@ class Train:
                 self.eval_one_epoch(sess, ops, epoch)
 
                 # Save the variables to disk.
-                # if epoch % 10 == 0:
-                #     save_path = saver.save(sess,
-                #                            os.path.join(self.data_dir, "model.ckpt"))
-                #     log_string("Model saved in file: %s" % save_path)
+                if epoch % 10 == 0:
+                    save_path = saver.save(sess, os.path.join(self.model_save_path, self.model_name), global_step=batch)
+                    print "Model saved in file: %s" % save_path
 
         pickle.dump([vars(self.flags), self.model.hp, self.metrics], open(self.data_fn, "wb"))
+        save_path = saver.save(sess, os.path.join(self.data_dir, "saved_models", self.flags.model + "_final"),
+                               global_step=batch)
+        print "Model saved in file: %s" % save_path
 
     def train_one_epoch(self, sess, ops, epoch):
         """ ops: dict mapping from string to tf ops """
@@ -300,13 +311,17 @@ def main():
     parser.add_argument('--gpu', type=int, default=0,
                         help='GPU to use [default: GPU 0]')
     parser.add_argument('--model', default='pointnet',
-                        help='Model name: pointnet [default: pointnet]')
+                        help='Model type: pointnet, cnn, cae_cnn [default: pointnet]')
     parser.add_argument('--mil', default='None',
-                        help='Type of self.mil name: seg, sub, or None [default: None]')
+                        help='Multiple instance method: seg, sub, or None [default: None]')
     parser.add_argument('--input_type', default='projection',
-                        help='Model name: pointcloud, multiview, voxels [default: pointcloud]')
+                        help='pointcloud or projection [default: projection]')
     parser.add_argument('--optimizer', default='adam',
                         help='adam or momentum [default: adam]')
+    parser.add_argument('--load_model', default='False',
+                        help='True or False [default: False]')
+    parser.add_argument('--model_name', default='model',
+                        help='Name to save model to [default: model]')
 
     flags = parser.parse_args()
 
