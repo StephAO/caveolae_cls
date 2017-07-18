@@ -37,9 +37,9 @@ class SegmentedMIL(Model):
         # self.features = tf.concat([tf.reduce_mean(instances, axis=1, keep_dims=True), tf.reduce_prod(instances, axis=1, keep_dims=True),
         #                            tf.reduce_max(instances, axis=1, keep_dims=True), tf.reduce_min(instances, axis=1, keep_dims=True),
         #                            tf.reduce_sum(instances, axis=1, keep_dims=True)], 1, name='mil_features')
-        self.pred = tf.expand_dims(self.model.pred, axis=0)
-        print self.pred.get_shape().as_list()
-        self.pred = nn_layers.noisy_and_1d(self.pred, 2 if self.use_softmax else 1)
+        with tf.variable_scope(type(self).__name__):
+            self.pred = tf.expand_dims(self.model.pred, axis=0)
+            self.pred = nn_layers.noisy_and_1d(self.pred, 2 if self.use_softmax else 1)
         # self.features = tf.reshape(self.features, [self.hp['BATCH_SIZE'], -1])
         # self.logits = nn_layers.fc(self.features, 10, 2, 'predicted_y_mil', is_training=self.is_training, activation_fn=None)
         # self.pred = tf.nn.softmax(self.logits, name='softmax_mil')
@@ -74,3 +74,11 @@ class SegmentedMIL(Model):
             data = neg[0]
             labels = np.array([[1., 0.]]) if self.use_softmax else 0.
             yield data, labels
+
+    def save(self, sess, model_path, global_step=None):
+        self.model.save(sess, model_path, global_step=global_step)
+        super(SegmentedMIL, self).save(sess, model_path, global_step=global_step)
+
+    def restore(self, sess, model_path):
+        self.model.restore(sess, model_path)
+        super(SegmentedMIL, self).restore(sess, model_path)

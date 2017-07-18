@@ -13,17 +13,19 @@ class CAE_CNN_DataHandler(DataHandler):
         self.input_data_type = input_data_type
         if input_data_type == "multiview" or input_data_type == "projection":
             self.data_key = 'Img3Ch'
-            # p_file_dir = '/staff/2/sarocaou/data/projection_positive'
-            # n_file_dir = '/staff/2/sarocaou/data/projection_negative'
-            p_file_dir = '/home/stephane/sfu_data/projection_positive'
-            n_file_dir = '/home/stephane/sfu_data/projection_negative'
+            p_file_dir = '/staff/2/sarocaou/data/projection_positive'
+            n_file_dir = '/staff/2/sarocaou/data/projection_negative'
+            # p_file_dir = '/home/stephane/sfu_data/projection_positive'
+            # n_file_dir = '/home/stephane/sfu_data/projection_negative'
 
         super(CAE_CNN_DataHandler, self).__init__(p_file_dir, n_file_dir, use_softmax)
-        self.cae = cae.CAE(input_data_type, own_data_handler=False)
+        self.cae = cae.CAE(input_data_type)
+        self.cae_pl = None
         self.input_shape = input_shape
         self.features = None
         self.replicator = None
         self.sess = None
+        self.model_save_path = None
 
     def load_input_data(self, filename):
         """
@@ -39,13 +41,12 @@ class CAE_CNN_DataHandler(DataHandler):
         return data, label
 
     def generate_cae_placeholders(self):
-        self.cae_pl = tf.placeholder(tf.float32, shape=(self.input_shape))
+        self.cae_pl = tf.placeholder(tf.float32, shape=self.input_shape)
 
     def generate_cae(self):
         if self.features is None or self.replicator is None:
-            in_channels = self.input_shape[-1]
-            self.cae.encode(self.cae_pl, in_channels)
-            self.cae.decode(in_channels)
+            self.cae.generate_model(self.cae_pl)
+            # self.cae.restore(self.sess, self.model_save_path)
 
             self.features = self.cae.features
             self.replicator = self.cae.pred
@@ -59,7 +60,6 @@ class CAE_CNN_DataHandler(DataHandler):
         """
         batch_size = batch_shape[0]
         sub_batch_size = self.input_shape[0]
-        print batch_size, sub_batch_size
         assert batch_size % sub_batch_size == 0
 
         data = np.zeros([sub_batch_size] + self.input_shape[1:])
@@ -93,7 +93,7 @@ class CAE_CNN_DataHandler(DataHandler):
                 if abs(progress - 0.95) <= 0.01:
                     print ""
             f = files[idx]
-            d, l = self.load_input_data(f)
+            d, l = self.cae.data_handler.load_input_data(f)
             # if l == 0:
             #     if num_negatives >= int(max_ratio_n * self.batch_size):
             #         continue

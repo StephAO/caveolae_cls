@@ -90,28 +90,29 @@ class PointNet(Model):
 
     def generate_model(self, input_pl=None, bn_decay=None):
         """ Classification PointNet, input is BxNx3, output Bx1 """
-        gf = self.generate_global_features(input_pl=input_pl, bn_decay=bn_decay)
+        with tf.variable_scope(type(self).__name__):
+            gf = self.generate_global_features(input_pl=input_pl, bn_decay=bn_decay)
 
-        input_channels = gf.get_shape()[-1].value
+            input_channels = gf.get_shape()[-1].value
 
-        fc1 = nn_layers.fc(gf, input_channels, 1024, batch_norm=True,
-                           is_training=self.is_training, layer_name='fc1',
-                           batch_norm_decay=bn_decay)
-        # dp1 = nn_layers.dropout(fc1, keep_prob=0.7, is_training=is_training,
-        #                         layer_name='dp1')
-        fc2 = nn_layers.fc(fc1, 1024, 256, batch_norm=True, is_training=self.is_training,
-                           layer_name='fc2', batch_norm_decay=bn_decay)
-        # dp2 = nn_layers.dropout(fc2, keep_prob=0.7, is_training=is_training,
-        #                         layer_name='dp2')
-        fc3 = nn_layers.fc(fc2, 256, 64, batch_norm=True, is_training=self.is_training,
-                           layer_name='fc3', batch_norm_decay=bn_decay)
-        if self.use_softmax:
-            self.logits = nn_layers.fc(fc3, 64, 2, 'predicted_y', is_training=self.is_training, activation_fn=None,
-                                        batch_norm=False)
-            self.pred = tf.nn.softmax(self.logits, name='softmax')
-        else:
-            self.pred = nn_layers.fc(fc3, 64, 1, 'predicted_y', is_training=self.is_training,
-                                     activation_fn=tf.nn.sigmoid, batch_norm=False)
+            fc1 = nn_layers.fc(gf, input_channels, 1024, batch_norm=True,
+                               is_training=self.is_training, layer_name='fc1',
+                               batch_norm_decay=bn_decay)
+            # dp1 = nn_layers.dropout(fc1, keep_prob=0.7, is_training=is_training,
+            #                         layer_name='dp1')
+            fc2 = nn_layers.fc(fc1, 1024, 256, batch_norm=True, is_training=self.is_training,
+                               layer_name='fc2', batch_norm_decay=bn_decay)
+            # dp2 = nn_layers.dropout(fc2, keep_prob=0.7, is_training=is_training,
+            #                         layer_name='dp2')
+            fc3 = nn_layers.fc(fc2, 256, 64, batch_norm=True, is_training=self.is_training,
+                               layer_name='fc3', batch_norm_decay=bn_decay)
+            if self.use_softmax:
+                self.logits = nn_layers.fc(fc3, 64, 2, 'predicted_y', is_training=self.is_training, activation_fn=None,
+                                            batch_norm=False)
+                self.pred = tf.nn.softmax(self.logits, name='softmax')
+            else:
+                self.pred = nn_layers.fc(fc3, 64, 1, 'predicted_y', is_training=self.is_training,
+                                         activation_fn=tf.nn.sigmoid, batch_norm=False)
 
         return self.pred
 

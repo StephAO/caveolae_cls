@@ -72,8 +72,8 @@ class Train:
         self.data_fn = FLAGS.input_type + '_' + FLAGS.model + '_' + ((self.mil + '_') if self.mil is not None else '') \
                        + time.strftime("%Y-%m-%d_%H:%M")
         self.data_fn = os.path.join(self.data_dir, self.data_fn)
-        self.model_name = FLAGS.model_name
-        self.model_save_path = os.path.join(self.data_dir, "saved_models", self.flags.model)
+        self.model_name = self.flags.model if FLAGS.model_name is None else FLAGS.model_name
+        self.model_save_path = os.path.join(self.data_dir, "saved_models", self.model_name)
         if not os.path.exists(self.model_save_path):
             os.makedirs(self.model_save_path)
 
@@ -164,35 +164,34 @@ class Train:
 
     def train(self):
         with tf.Graph().as_default():
-            with tf.device('/gpu:' + str(self.gpu_index)):
-                # Note the global_step=batch parameter to minimize.
-                # That tells the optimizer to helpfully increment the 'batch' parameter for you every time it trains.
-                batch = tf.Variable(0)
-                bn_decay = self.get_bn_decay(batch)
-                tf.summary.scalar('bn_decay', bn_decay)
-
-                # Get model and loss
-                self.model.generate(bn_decay=bn_decay)
-
-                # Get training operator
-                learning_rate = self.get_learning_rate(batch)
-                tf.summary.scalar('learning_rate', learning_rate)
-                if self.optimizer == 'momentum':
-                    optimizer = tf.train.MomentumOptimizer(learning_rate,
-                                                           momentum=self.momentum)
-                elif self.optimizer == 'adam':
-                    optimizer = tf.train.AdamOptimizer(learning_rate)
-                train_op = optimizer.minimize(self.model.loss, global_step=batch)
-
-                # Add ops to save and restore all the variables.
-                saver = tf.train.Saver()
-
             # Create a session
             config = tf.ConfigProto()
             config.gpu_options.allow_growth = True
             config.allow_soft_placement = True
             config.log_device_placement = False
             sess = tf.Session(config=config)
+            if self.flags.model == "cae_cnn":
+                self.model.data_handler.sess = sess
+                self.model.data_handler.model_save_path = self.model_save_path
+            with tf.device('/gpu:' + str(self.gpu_index)):
+                # Note the global_step=batch parameter to minimize.
+                # That tells the optimizer to helpfully increment the 'batch' parameter for you every time it trains.
+                step = tf.Variable(0)
+                bn_decay = self.get_bn_decay(step)
+                tf.summary.scalar('bn_decay', bn_decay)
+
+                # Get model and loss
+                self.model.generate(bn_decay=bn_decay)
+
+                # Get training operator
+                learning_rate = self.get_learning_rate(step)
+                tf.summary.scalar('learning_rate', learning_rate)
+                if self.optimizer == 'momentum':
+                    optimizer = tf.train.MomentumOptimizer(learning_rate,
+                                                           momentum=self.momentum)
+                elif self.optimizer == 'adam':
+                    optimizer = tf.train.AdamOptimizer(learning_rate)
+                train_op = optimizer.minimize(self.model.loss, global_step=step)
 
             # Add summary writers
             # merged = tf.merge_all_summaries()
@@ -206,19 +205,19 @@ class Train:
 
             sess.run(init, {self.model.is_training: True})
 
+            global_step_saver = tf.train.Saver(var_list=[step])
+
             if self.flags.load_model == "True":
-                saver.restore(sess, tf.train.latest_checkpoint(self.model_save_path))
+                self.model.restore(sess, self.model_save_path)
+                global_step_saver.restore(sess, os.path.join(self.model_save_path, "step"))
 
-            if self.flags.model == "cae_cnn":
-                self.model.data_handler.sess = sess
-
-            ops = {'train_op': train_op, 'step': batch}
+            ops = {'train_op': train_op, 'step': step}
 
             print "Initialization evaluation"
             self.eval_one_epoch(sess, ops, -1)
 
             for epoch in range(self.max_epoch):
-                print '-' * 10 + ' Epoch: %03d' % epoch + '-' * 10
+                print '-' * 10 + ' Epoch: %03d ' % epoch + '-' * 10
                 sys.stdout.flush()
 
                 self.train_one_epoch(sess, ops, epoch)
@@ -226,13 +225,10 @@ class Train:
 
                 # Save the variables to disk.
                 if epoch % 10 == 0:
-                    save_path = saver.save(sess, os.path.join(self.model_save_path, self.model_name), global_step=batch)
-                    print "Model saved in file: %s" % save_path
+                    self.model.save(sess, self.model_save_path, global_step=step)
+                    global_step_saver.save(sess, os.path.join(self.model_save_path, "step"), global_step=step)
 
         pickle.dump([vars(self.flags), self.model.hp, self.metrics], open(self.data_fn, "wb"))
-        save_path = saver.save(sess, os.path.join(self.data_dir, "saved_models", self.flags.model + "_final"),
-                               global_step=batch)
-        print "Model saved in file: %s" % save_path
 
     def train_one_epoch(self, sess, ops, epoch):
         """ ops: dict mapping from string to tf ops """
@@ -320,7 +316,7 @@ def main():
                         help='adam or momentum [default: adam]')
     parser.add_argument('--load_model', default='False',
                         help='True or False [default: False]')
-    parser.add_argument('--model_name', default='model',
+    parser.add_argument('--model_name', default=None,
                         help='Name to save model to [default: model]')
 
     flags = parser.parse_args()

@@ -27,7 +27,7 @@ class CAE(Model):
         return self.data_handler.get_batch(self.input_shape, eval=eval, type=type)
 
     def generate_input_placeholders(self):
-        self.input_pl = tf.placeholder(tf.float32, shape=(self.input_shape))
+        self.input_pl = tf.placeholder(tf.float32, shape=self.input_shape)
         self.is_training = tf.placeholder(tf.bool, shape=())
         
     def encode(self, input_pl, in_channels):
@@ -64,8 +64,9 @@ class CAE(Model):
     def generate_model(self, input_pl=None, bn_decay=None, reuse=None):
         input_pl = self.input_pl if input_pl is None else input_pl
         in_channels = input_pl.get_shape()[-1].value
-        self.encode(input_pl, in_channels)
-        self.decode(in_channels)
+        with tf.variable_scope(type(self).__name__):
+            self.encode(input_pl, in_channels)
+            self.decode(in_channels)
 
         return self.pred
 
@@ -179,7 +180,7 @@ class CAE(Model):
         return loss
 
     def generate_loss(self):
-        self.loss = self.euclidean_loss() #
+        self.loss = self.euclidean_loss()
         self.val_loss = self.euclidean_loss()
 
     # def generate_loss(self):

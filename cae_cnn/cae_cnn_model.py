@@ -40,11 +40,16 @@ class CAE_CNN(Model):
             self.loss = tf.reduce_mean(logistic_losses)
         else:
             simple_loss = -(self.label_pl * tf.log(self.pred + 1e-12) +
-                     (1.0 - self.label_pl) * tf.log(1.0 - self.pred + 1e-12))
+                            (1.0 - self.label_pl) * tf.log(1.0 - self.pred + 1e-12))
             cross_entropy = tf.reduce_sum(simple_loss, reduction_indices=[1])
             self.loss = tf.reduce_mean(cross_entropy)
         self.val_loss = self.loss
 
     def get_batch(self, eval=False, type='mixed'):
-        return self.data_handler.get_batch(self.input_shape, eval=eval,
-                                           type=type)
+        return self.data_handler.get_batch(self.input_shape, eval=eval, type=type)
+
+    def save(self, sess, model_path, global_step=None):
+        self.cnn.save(sess, model_path, global_step=global_step)
+
+    def restore(self, sess, model_path):
+        self.cnn.restore(sess, model_path)
