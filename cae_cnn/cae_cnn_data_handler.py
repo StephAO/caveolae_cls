@@ -1,5 +1,7 @@
 import numpy as np
+import os
 import scipy.io as sio
+from scipy import ndimage
 import sys
 import tensorflow as tf
 
@@ -13,10 +15,10 @@ class CAE_CNN_DataHandler(DataHandler):
         self.input_data_type = input_data_type
         if input_data_type == "multiview" or input_data_type == "projection":
             self.data_key = 'Img3Ch'
-            p_file_dir = '/staff/2/sarocaou/data/projection_positive'
-            n_file_dir = '/staff/2/sarocaou/data/projection_negative'
-            # p_file_dir = '/home/stephane/sfu_data/projection_positive'
-            # n_file_dir = '/home/stephane/sfu_data/projection_negative'
+            # p_file_dir = '/staff/2/sarocaou/data/projection_positive'
+            # n_file_dir = '/staff/2/sarocaou/data/projection_negative'
+            p_file_dir = '/home/stephane/sfu_data/projection_positive'
+            n_file_dir = '/home/stephane/sfu_data/projection_negative'
 
         super(CAE_CNN_DataHandler, self).__init__(p_file_dir, n_file_dir, use_softmax)
         self.cae = cae.CAE(input_data_type)
@@ -27,26 +29,18 @@ class CAE_CNN_DataHandler(DataHandler):
         self.sess = None
         self.model_save_path = None
 
-    def load_input_data(self, filename):
-        """
-        Load point cloud data and label given a file
-        """
-        f = sio.loadmat(filename)
-        data = f[self.data_key][:]
-        label = DataHandler.get_label_from_filename(filename)
-        if self.use_softmax:
-            l = np.zeros([2])
-            l[label] = 1
-            label = l
-        return data, label
-
     def generate_cae_placeholders(self):
         self.cae_pl = tf.placeholder(tf.float32, shape=self.input_shape)
 
     def generate_cae(self):
         if self.features is None or self.replicator is None:
             self.cae.generate_model(self.cae_pl)
-            # self.cae.restore(self.sess, self.model_save_path)
+            # try:
+            self.cae.restore(self.sess, os.path.join(self.model_save_path))
+
+            # except:
+            #     print "Unable to load CAE model"
+            #     exit()
 
             self.features = self.cae.features
             self.replicator = self.cae.pred
@@ -93,7 +87,7 @@ class CAE_CNN_DataHandler(DataHandler):
                 if abs(progress - 0.95) <= 0.01:
                     print ""
             f = files[idx]
-            d, l = self.cae.data_handler.load_input_data(f)
+            d, l = self.cae.data_handler.load_input_data(f, softmax=self.use_softmax)
             # if l == 0:
             #     if num_negatives >= int(max_ratio_n * self.batch_size):
             #         continue

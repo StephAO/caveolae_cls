@@ -44,6 +44,7 @@ class Model:
         if self.saver is None:
             self.saver = tf.train.Saver(var_list=tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=type(self).__name__))
         most_recent_ckpt = tf.train.latest_checkpoint(model_path)
+        # print most_recent_ckpt
         self.saver.restore(sess, most_recent_ckpt)
         print "Model restored from file: %s" % most_recent_ckpt
 

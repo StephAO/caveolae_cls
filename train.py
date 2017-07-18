@@ -74,8 +74,10 @@ class Train:
         self.data_fn = os.path.join(self.data_dir, self.data_fn)
         self.model_name = self.flags.model if FLAGS.model_name is None else FLAGS.model_name
         self.model_save_path = os.path.join(self.data_dir, "saved_models", self.model_name)
+        self.step_save_path = os.path.join(self.model_save_path, "step")
         if not os.path.exists(self.model_save_path):
             os.makedirs(self.model_save_path)
+            os.makedirs(self.step_save_path)
 
         self.metrics = {
             'training_loss': [None], 'validation_loss': [],
@@ -172,7 +174,7 @@ class Train:
             sess = tf.Session(config=config)
             if self.flags.model == "cae_cnn":
                 self.model.data_handler.sess = sess
-                self.model.data_handler.model_save_path = self.model_save_path
+                self.model.data_handler.model_save_path = os.path.join(self.data_dir, "saved_models", "cae")
             with tf.device('/gpu:' + str(self.gpu_index)):
                 # Note the global_step=batch parameter to minimize.
                 # That tells the optimizer to helpfully increment the 'batch' parameter for you every time it trains.
@@ -209,7 +211,7 @@ class Train:
 
             if self.flags.load_model == "True":
                 self.model.restore(sess, self.model_save_path)
-                global_step_saver.restore(sess, os.path.join(self.model_save_path, "step"))
+                global_step_saver.restore(sess, os.path.join(self.step_save_path))
 
             ops = {'train_op': train_op, 'step': step}
 
@@ -226,7 +228,7 @@ class Train:
                 # Save the variables to disk.
                 if epoch % 10 == 0:
                     self.model.save(sess, self.model_save_path, global_step=step)
-                    global_step_saver.save(sess, os.path.join(self.model_save_path, "step"), global_step=step)
+                    global_step_saver.save(sess, os.path.join(self.step_save_path, "step"), global_step=step)
 
         pickle.dump([vars(self.flags), self.model.hp, self.metrics], open(self.data_fn, "wb"))
 
