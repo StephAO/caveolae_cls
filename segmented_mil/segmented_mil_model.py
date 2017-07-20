@@ -38,11 +38,11 @@ class SegmentedMIL(Model):
         #                            tf.reduce_max(instances, axis=1, keep_dims=True), tf.reduce_min(instances, axis=1, keep_dims=True),
         #                            tf.reduce_sum(instances, axis=1, keep_dims=True)], 1, name='mil_features')
         with tf.variable_scope(type(self).__name__):
-            self.pred = tf.expand_dims(self.model.pred, axis=0)
-            self.pred = nn_layers.noisy_and_1d(self.pred, 2 if self.use_softmax else 1)
-        # self.features = tf.reshape(self.features, [self.hp['BATCH_SIZE'], -1])
-        # self.logits = nn_layers.fc(self.features, 10, 2, 'predicted_y_mil', is_training=self.is_training, activation_fn=None)
-        # self.pred = tf.nn.softmax(self.logits, name='softmax_mil')
+            self.prob = tf.expand_dims(self.model.pred, axis=0)
+            self.logits = nn_layers.noisy_and_1d(self.prob, 2 if self.use_softmax else 1)
+            # self.logits = nn_layers.fc(self.prob, 2, 2, 'predicted_y_mil', is_training=self.is_training, activation_fn=None)
+            self.pred = tf.nn.softmax(self.logits, name='softmax_mil')
+
         self.model.generate_model(bn_decay=bn_decay, reuse=True)
         return self.pred
 
@@ -50,7 +50,7 @@ class SegmentedMIL(Model):
         if self.use_softmax:
             # loss_p = tf.nn.softmax_cross_entropy_with_logits(logits=self.prob, labels=self.label_pl,
             #                                                  name='sigmoid_xentropy_mil')
-            loss_l = tf.nn.softmax_cross_entropy_with_logits(logits=self.pred, labels=self.label_pl,
+            loss_l = tf.nn.softmax_cross_entropy_with_logits(logits=self.logits, labels=self.label_pl,
                                                              name='sigmoid_xentropy_mil')
             self.loss = tf.reduce_mean(loss_l)
         else:

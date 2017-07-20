@@ -17,10 +17,16 @@ class CAE_CNN_DataHandler(DataHandler):
             self.data_key = 'Img3Ch'
             # p_file_dir = '/staff/2/sarocaou/data/projection_positive'
             # n_file_dir = '/staff/2/sarocaou/data/projection_negative'
-            p_file_dir = '/home/stephane/sfu_data/projection_positive'
-            n_file_dir = '/home/stephane/sfu_data/projection_negative'
+            p_file_dir_val = '/home/stephane/sfu_data/projection_positive'
+            n_file_dir_val = '/home/stephane/sfu_data/projection_negative'
+            p_file_dir = '/home/stephane/sfu_data/mil_data/positive'
+            n_file_dir = '/home/stephane/sfu_data/mil_data/negative'
 
         super(CAE_CNN_DataHandler, self).__init__(p_file_dir, n_file_dir, use_softmax)
+
+        self.p_eval_files = DataHandler.get_data_files(os.path.join(p_file_dir_val, "validation"))
+        self.n_eval_files = DataHandler.get_data_files(os.path.join(n_file_dir_val, "validation"))[:len(self.p_eval_files)]
+
         self.cae = cae.CAE(input_data_type)
         self.cae_pl = None
         self.input_shape = input_shape

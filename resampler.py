@@ -35,14 +35,21 @@ def upsample(files, target_dir, num_new_samples=None):
 
 
 def convert(files, target_dir):
+    num_skipped = 0
+    num_convert = 0
     for f in files:
         data = sio.loadmat(f)
-        blob = data["simple"]
+        blob = data["blob"]
+        if len(data["blob"]) < 60:
+            num_skipped += 1
+            continue
         proj = blob_to_projections(blob)
         data["Img3Ch"] = proj
-        del data["simple"]
+        del data["blob"]
         new_file_path = os.path.join(target_dir, f.split('/')[-1])
         sio.savemat(new_file_path, data, do_compression=True)
+        num_convert += 1
+    print "%d skipped, %d converted" % (num_skipped, num_convert)
 
 
 def blob_to_projections(blob):
@@ -71,13 +78,16 @@ def blob_to_projections(blob):
 def create_training_validation(blob_dir, target_dir, input_type, validation_ratio=0.1, num_new_samples=None):
     training_dir = os.path.join(target_dir, "training")
     validation_dir = os.path.join(target_dir, "validation")
+    test_dir = os.path.join(target_dir, "test")
 
     if not os.path.exists(target_dir):
-        os.mkdir(target_dir)
+        os.makedirs(target_dir)
     if not os.path.exists(training_dir):
-        os.mkdir(training_dir)
+        os.makedirs(training_dir)
     if not os.path.exists(validation_dir):
-        os.mkdir(validation_dir)
+        os.makedirs(validation_dir)
+    if not os.path.exists(test_dir):
+        os.makedirs(test_dir)
 
     files = DataHandler.get_data_files(blob_dir)
     np.random.shuffle(files)
@@ -85,15 +95,16 @@ def create_training_validation(blob_dir, target_dir, input_type, validation_rati
     num_val = int(validation_ratio * len(files))
 
     if input_type == "projection":
-        convert(files[:num_val], validation_dir)
-
-        convert(files[num_val:], training_dir)
-        upsample(files[num_val:], training_dir, num_new_samples=num_new_samples)
+        convert(files[:num_val], test_dir)
+        convert(files[num_val:num_val * 2], validation_dir)
+        convert(files[num_val * 2:], training_dir)
+        upsample(files[num_val * 2:], training_dir, num_new_samples=num_new_samples)
     elif input_type == "pointcloud":
         for f in files[:num_val]:
+            shutil.copy2(f, test_dir)
+        for f in files[num_val:num_val * 2]:
             shutil.copy2(f, validation_dir)
-
-        for f in files[num_val:]:
+        for f in files[num_val * 2:]:
             shutil.copy2(f, training_dir)
 
 
@@ -102,7 +113,7 @@ def main():
     blob_dir = sys.argv[2]
     target_dir = sys.argv[3]
     validation_ratio = 0.1 if len(sys.argv) < 5 else float(sys.argv[4])
-    num_new_samples = None if len(sys.argv) < 6 else int(sys.argv[5])
+    num_new_samples = 0 if len(sys.argv) < 6 else int(sys.argv[5])
 
     create_training_validation(blob_dir, target_dir, input_type,
                                validation_ratio=validation_ratio, num_new_samples=num_new_samples)

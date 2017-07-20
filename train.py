@@ -246,6 +246,7 @@ class Train:
             # train_writer.add_summary(summary, step)
 
             if self.model.use_softmax:
+                # print pred_val
                 pred_val = np.argmax(pred_val, axis=1)
                 labels = np.argmax(labels, axis=1)
             else:
@@ -283,6 +284,7 @@ class Train:
             ##############
 
             if self.model.use_softmax:
+                # print pred_val
                 pred_val = np.argmax(pred_val, axis=1)
                 labels = np.argmax(labels, axis=1)
             else:

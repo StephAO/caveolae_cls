@@ -1,4 +1,5 @@
 import numpy as np
+import os
 import scipy.io as sio
 from scipy import ndimage
 import sys
@@ -13,8 +14,8 @@ class CAEDataHandler(DataHandler):
             self.data_key = 'Img3Ch'
             # p_file_dir = '/staff/2/sarocaou/data/projection_positive'
             # n_file_dir = '/staff/2/sarocaou/data/projection_negative'
-            p_file_dir = '/home/stephane/sfu_data/projection_positive'
-            n_file_dir = '/home/stephane/sfu_data/projection_negative'
+            p_file_dir = '/home/stephane/sfu_data/mil_data/positive'
+            n_file_dir = '/home/stephane/sfu_data/mil_data/negative'
             # p_file_dir = '/staff/2/sarocaou/data/simple_projection'
             # n_file_dir = '/staff/2/sarocaou/data/simple_projection'
         super(CAEDataHandler, self).__init__(p_file_dir, n_file_dir)
