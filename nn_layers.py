@@ -308,7 +308,7 @@ def noisy_and_1d(input_tensor, num_classes, layer_name="noisy_and", reuse=None):
     with tf.variable_scope(layer_name, reuse=reuse):
         a = bias_variable('a', [1], value=10.0)
         b = bias_variable('b', [1, num_classes], value=0.2)
-        # b = tf.minimum(b, tf.constant(1.0, shape=[1, num_classes]))
+        b = tf.minimum(b, tf.constant(1.0, shape=[1, num_classes]))
         mean = tf.reduce_mean(input_tensor, axis=[1])
         threshold = (tf.nn.sigmoid(a * (mean - b)) - tf.nn.sigmoid(-a * b)) / \
                     (tf.sigmoid(a * (1 - b)) - tf.sigmoid(-a * b))
