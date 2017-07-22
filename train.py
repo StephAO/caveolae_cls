@@ -83,7 +83,8 @@ class Train:
             'training_loss': [None], 'validation_loss': [],
             'training_accuracy': [None], 'validation_accuracy': [],
             'training_precision': [None], 'validation_precision': [],
-            'training_recall': [None], 'validation_recall': [],
+            'training_sensitivity': [None], 'validation_sensitivity': [],
+            'training_specificity': [None], 'validation_specificity': [],
             'training_f1': [None], 'validation_f1': []}
         self.tp = 0
         self.tn = 0
@@ -139,20 +140,22 @@ class Train:
         val_loss = self.val_loss / float(self.count)
         accuracy = 0. if self.tp + self.tn == 0 else (self.tp + self.tn) / float(self.tp + self.tn + self.fp + self.fn)
         precision = 0. if self.tp == 0 else self.tp / float(self.tp + self.fp)
-        recall = 0. if self.tp == 0 else self.tp / float(self.tp + self.fn)
-        f1 = 0. if precision + recall == 0 else 2 * precision * recall / (precision + recall)
+        sensitivity = 0. if self.tp == 0 else self.tp / float(self.tp + self.fn)
+        specificity = 0. if self.tn == 0 else self.tn / float(self.tn + self.fp)
+        f1 = 0. if precision + sensitivity == 0 else 2 * precision * sensitivity / (precision + sensitivity)
         if reset_scores:
             self.reset_scores()
-        return loss, accuracy, precision, recall, f1, val_loss
+        return loss, accuracy, precision, sensitivity, specificity, f1, val_loss
 
-    def update_metrics(self, loss, accuracy, precision, recall, f1, val_loss=0, training=True):
+    def update_metrics(self, loss, accuracy, precision, sensitivity, specificity, f1, val_loss=0, training=True):
         prefix = 'training_' if training else 'validation_'
         # update
         self.metrics[prefix + 'loss'].append(loss)
         if self.classification:
             self.metrics[prefix + 'accuracy'].append(accuracy)
             self.metrics[prefix + 'precision'].append(precision)
-            self.metrics[prefix + 'recall'].append(recall)
+            self.metrics[prefix + 'sensitivity'].append(sensitivity)
+            self.metrics[prefix + 'specificity'].append(specificity)
             self.metrics[prefix + 'f1'].append(f1)
         # print
         print prefix + 'loss: ' + str(loss)
@@ -161,7 +164,8 @@ class Train:
         if self.classification:
             print prefix + 'accuracy: ' + str(accuracy)
             print prefix + 'precision: ' + str(precision)
-            print prefix + 'recall: ' + str(recall)
+            print prefix + 'sensitivity: ' + str(sensitivity)
+            print prefix + 'specificity: ' + str(specificity)
             print prefix + 'f1: ' + str(f1)
 
     def train(self):
@@ -255,8 +259,8 @@ class Train:
             # calculate metrics
             self.update_scores(loss, labels, pred_val)
 
-        loss, accuracy, precision, recall, f1, _ = self.calculate_metrics()
-        self.update_metrics(loss, accuracy, precision, recall, f1, training=True)
+        loss, accuracy, precision, sensitivity, specificity, f1, _ = self.calculate_metrics()
+        self.update_metrics(loss, accuracy, precision, sensitivity, specificity, f1, training=True)
 
     def eval_one_epoch(self, sess, ops, epoch):
         """ ops: dict mapping from string to tf ops """
@@ -293,8 +297,8 @@ class Train:
             # calculate metrics
             self.update_scores(loss, labels, pred_val, val_loss=val_loss)
 
-        loss, accuracy, precision, recall, f1, val_loss = self.calculate_metrics()
-        self.update_metrics(loss, accuracy, precision, recall, f1, val_loss=val_loss, training=False)
+        loss, accuracy, precision, sensitivity, specificity, f1,  val_loss = self.calculate_metrics()
+        self.update_metrics(loss, accuracy, precision, sensitivity, specificity, f1, val_loss=val_loss, training=False)
 
         ### REMOVE ### TODO
         filename = os.path.join(self.data_dir, str(epoch) + ".p")
