@@ -17,6 +17,8 @@ class SegmentedMIL(Model):
         self.num_instances_per_bag = self.hp['NUM_INSTANCES']
         self.input_pl_shape = None
         self.is_training = None
+        self.input_pl = None
+        self.label_pl = None
 
     def generate_input_placeholders(self):
         self.input_pl_shape = [self.num_instances_per_bag] + self.model.input_shape[1:]
@@ -25,6 +27,45 @@ class SegmentedMIL(Model):
         self.label_pl = tf.placeholder(tf.float32, shape=[1, 2] if self.use_softmax else [1])
         self.model.generate_input_placeholders()
         self.is_training = self.model.is_training
+
+    def choose_2_centroids(self):
+        # Step 0: Initialisation: Select `n_clusters` number of random points
+        centroid_0 = self.input_pl[0]
+        distances_to_others = tf.reduce_sum(tf.square(tf.subtract(self.input_pl[1:], self.input_pl[0])), axis=(1, 2, 3))
+        furthest_index = tf.argmax(distances_to_others)
+        centroid_1 = self.input_pl[furthest_index]
+        return tf.concat([centroid_0, centroid_1], 0)
+
+    def assign_to_nearest(self, centroids):
+        # Finds the nearest centroid for each sample
+
+        # START from http://esciencegroup.com/2016/01/05/an-encounter-with-googles-tensorflow/
+        expanded_vectors = tf.expand_dims(self.input_pl, 0)
+        expanded_centroids = tf.expand_dims(centroids, 1)
+        distances = tf.reduce_sum(tf.square(tf.subtract(expanded_vectors, expanded_centroids)), 2)
+        mins = tf.argmin(distances, 0)
+        # END from http://esciencegroup.com/2016/01/05/an-encounter-with-googles-tensorflow/
+        nearest_indices = mins
+        return nearest_indices
+
+    def update_centroids(self, nearest_indices):
+        # Updates the centroid to be the mean of all samples associated with it.
+        nearest_indices = tf.to_int32(nearest_indices)
+        partitions = tf.dynamic_partition(self.input_pl, nearest_indices, 2)
+        new_centroids = tf.concat([tf.expand_dims(tf.reduce_mean(partition, 0), 0) for partition in partitions], 0)
+        return new_centroids
+
+    def cluster(self, num_iterations=10):
+        centroids = self.choose_2_centroids()
+        nearest_indices = self.assign_to_nearest(centroids)
+        for i in xrange(num_iterations):
+            centroids = self.update_centroids(nearest_indices)
+            nearest_indices = self.assign_to_nearest(centroids)
+        # since index will either be 0 or 1, if more than half of indices are 1, then the rounded mean will be 1
+        smaller_cluster = tf.rint(tf.reduce_mean(nearest_indices))
+        in_smaller_cluster = tf.equal(nearest_indices, smaller_cluster)
+        input_idx_in_cluster = tf.where(in_smaller_cluster)
+        return input_idx_in_cluster
 
     def get_positive_mean(self, values, num_iterations=10):
         """
@@ -71,8 +112,6 @@ class SegmentedMIL(Model):
         positives = tf.gather(self.model.pred, indices=tf.squeeze(pos_indices))
         return tf.reduce_mean(positives, axis=0)
 
-
-
     def generate_model(self, bn_decay=None, aggregation='two_means'):
         # i_preds = [None] * self.num_instances_per_bag
         self.model.generate_model(input_pl=self.input_pl, bn_decay=bn_decay, reuse=False)
@@ -110,6 +149,14 @@ class SegmentedMIL(Model):
             self.logits = tf.expand_dims(self.mean, axis=0)
             self.pred = tf.nn.softmax(self.logits, name='softmax_mil')
         #################
+
+        ### PRE_CLUSTER ###
+        if aggregation == 'feature_cluster':
+            self.pos_cluster_idx = self.cluster()
+            self.mean = self.reduce_mean(tf.gather(self.model.pred, self.pos_cluster_idx), axis=0)
+            self.logits = tf.expand_dims(self.mean, axis=0)
+            self.pred = tf.nn.softmax(self.logits, name='softmax_mil')
+        ###################
 
         self.model.generate_model(bn_decay=bn_decay, reuse=True)
         return self.pred
