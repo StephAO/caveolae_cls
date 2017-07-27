@@ -133,6 +133,7 @@ class Train:
             self.tn += np.count_nonzero((true - 1) * (pred - 1))
             self.fp += np.count_nonzero((true - 1) * pred)
             self.fn += np.count_nonzero(true * (pred - 1))
+            # print self.tp, self.tn, self.fp, self.fn, " == ", old_sum, self.model.hp['BATCH_SIZE']
             assert (old_sum + self.model.hp['BATCH_SIZE'] == self.tp + self.tn + self.fp + self.fn)
 
     def calculate_metrics(self, reset_scores=True):
@@ -245,10 +246,10 @@ class Train:
                          self.model.is_training: is_training}
             if self.classification:
                 feed_dict[self.model.label_pl] = labels
-            step, _, loss, pred_val = sess.run(
-                [ops['step'], ops['train_op'], self.model.loss, self.model.pred], feed_dict=feed_dict)
+            step, _, loss, pred_val, mean, pos_idx = sess.run(
+                [ops['step'], ops['train_op'], self.model.loss, self.model.pred, self.model.logits, self.model.pos_cluster_idx], feed_dict=feed_dict)
             # train_writer.add_summary(summary, step)
-
+            print "****", mean, "****", len(pos_idx)
             if self.model.use_softmax:
                 # print pred_val
                 pred_val = np.argmax(pred_val, axis=1)

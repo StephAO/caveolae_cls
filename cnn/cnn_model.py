@@ -66,12 +66,12 @@ class CNN(Model):
             conv3 = nn_layers.conv2d(pool1, 128, 256, (3, 3), 'conv3', is_training=self.is_training, reuse=reuse)
             pool2 = nn_layers.max_pool2d(conv3, (3, 3), 'pool2', reuse=reuse)
             conv4 = nn_layers.conv2d(pool2, 256, 512, (1, 1), 'conv4', is_training=self.is_training, reuse=reuse)
-            # conv6 = nn_layers.conv2d(pool4, 256, 512, (1, 1), 'conv_6', is_training=self.is_training, reuse=reuse)
+            conv5 = nn_layers.conv2d(conv4, 512, 1024, (1, 1), 'conv_5', is_training=self.is_training, reuse=reuse)
             # conv7 = nn_layers.conv2d(conv6, 512, 1024, (1, 1), 'conv_7', is_training=self.is_training, reuse=reuse)
-            convnet = tf.reshape(conv4, [batch_size, -1])
+            convnet = tf.reshape(conv5, [batch_size, -1])
             input_channels = convnet.get_shape()[-1].value
-            fc1 = nn_layers.fc(convnet, input_channels, 256, 'fc1', is_training=self.is_training, reuse=reuse)
-            fc2 = nn_layers.fc(fc1, 256, 128, 'fc2', is_training=self.is_training, reuse=reuse)
+            fc1 = nn_layers.fc(convnet, input_channels, 512, 'fc1', is_training=self.is_training, reuse=reuse)
+            fc2 = nn_layers.fc(fc1, 512, 128, 'fc2', is_training=self.is_training, reuse=reuse)
             if self.use_softmax:
                  self.logits = nn_layers.fc(fc2, 128, 2, 'predicted_y', is_training=self.is_training, activation_fn=None,
                                             batch_norm=False, reuse=reuse)

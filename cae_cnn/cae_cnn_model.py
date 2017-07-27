@@ -1,5 +1,4 @@
 import tensorflow as tf
-import caveolae_cls.nn_layers as nn_layers
 import caveolae_cls.cnn.cnn_model as cnn
 from caveolae_cls.cae_cnn.cae_cnn_data_handler import CAE_CNN_DataHandler
 from caveolae_cls.data_handler import DataHandler as DH

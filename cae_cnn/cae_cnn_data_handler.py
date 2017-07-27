@@ -11,7 +11,7 @@ import caveolae_cls.cae.cae_model as cae
 
 class CAE_CNN_DataHandler(DataHandler):
 
-    def __init__(self, input_data_type, input_shape, use_softmax=False):
+    def __init__(self, input_data_type, input_shape, use_softmax=True):
         self.input_data_type = input_data_type
         if input_data_type == "multiview" or input_data_type == "projection":
             self.data_key = 'Img3Ch'
@@ -24,6 +24,7 @@ class CAE_CNN_DataHandler(DataHandler):
 
         super(CAE_CNN_DataHandler, self).__init__(p_file_dir, n_file_dir, use_softmax)
 
+        # TODO CHECK YOUR FUCKING DIFF and CHANGE "training" back to "validation"
         self.p_eval_files = DataHandler.get_data_files(os.path.join(p_file_dir_val, "validation"))
         self.n_eval_files = DataHandler.get_data_files(os.path.join(n_file_dir_val, "validation"))[:len(self.p_eval_files)]
 
