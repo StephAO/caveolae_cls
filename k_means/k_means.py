@@ -8,14 +8,17 @@ class K_Means:
         self.num_samples = num_samples
         self.samples = None
 
-    def choose_centroids(self, first_centroid_idx):
+    def choose_centroids(self, starting_centroid_indices, num_starting_indices):
         # Uses k-means++ algorithm
-        if first_centroid_idx is None:
-            first_centroid_idx = tf.random_uniform((), minval=0, maxval=self.num_samples + 1, dtype=tf.int32)
+        # if starting_centroid_indices is None:
+        #     starting_centroid_indices = [tf.random_uniform((), minval=0, maxval=self.num_samples + 1, dtype=tf.int32)]
+        # if not isinstance(starting_centroid_indices, list):
+        #     starting_centroid_indices = [starting_centroid_indices]
         centroids = []
-        centroids.append(tf.expand_dims(self.samples[0][first_centroid_idx], 0))
+        for init_idx in tf.unstack(starting_centroid_indices):
+            centroids.append(tf.expand_dims(self.samples[0][init_idx], 0))
 
-        for i in xrange(1, self.num_clusters):
+        for i in xrange(num_starting_indices, self.num_clusters):
             distances_to_others = tf.reduce_sum(tf.square(tf.subtract(self.samples, centroids)), axis=(2, 3, 4))
             min_distance = tf.reduce_min(distances_to_others, axis=0)
             prob_dist = tf.divide(min_distance, tf.reduce_sum(min_distance))
@@ -45,9 +48,9 @@ class K_Means:
         new_centroids = tf.concat([tf.expand_dims(tf.reduce_mean(partition, 0, keep_dims=True), 0) for partition in partitions], 0)
         return new_centroids
 
-    def cluster(self, samples, highest_pos_idx, num_iterations=10):
+    def cluster(self, samples, starting_indices, num_starting_indices, num_iterations=10):
         self.samples = tf.expand_dims(samples, 0)
-        centroids = self.choose_centroids(highest_pos_idx)
+        centroids = self.choose_centroids(starting_indices, num_starting_indices)
         # centroids = tf.concat([tf.expand_dims(self.samples[highest_pos_idx], axis=0),
         #                        tf.expand_dims(self.samples[highest_neg_idx], axis=0)], 0)
         nearest_indices = self.assign_to_nearest(centroids)
@@ -56,6 +59,5 @@ class K_Means:
             nearest_indices = tf.to_float(self.assign_to_nearest(centroids))
         # since index will either be 0 or 1, if more than half of indices are 1, then the rounded mean will be 1
         # smaller_cluster = tf.rint(tf.reduce_mean(nearest_indices))
-        in_pos_cluster = tf.equal(nearest_indices, 0.)
-        input_idx_in_cluster = tf.where(in_pos_cluster)
-        return input_idx_in_cluster #, nearest_indices
+
+        return nearest_indices

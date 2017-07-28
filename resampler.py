@@ -76,17 +76,17 @@ def blob_to_projections(blob):
 
 
 def create_training_validation(blob_dir, target_dir, input_type, validation_ratio=0.1, num_new_samples=None):
-    training_dir = os.path.join(target_dir, "training")
+    training_dir = os.path.join(target_dir, "training") if validation_ratio != 0 else target_dir
     validation_dir = os.path.join(target_dir, "validation")
     test_dir = os.path.join(target_dir, "test")
 
     if not os.path.exists(target_dir):
         os.makedirs(target_dir)
-    if not os.path.exists(training_dir):
+    if validation_ratio != 0 and not os.path.exists(training_dir):
         os.makedirs(training_dir)
-    if not os.path.exists(validation_dir):
+    if validation_ratio != 0 and not os.path.exists(validation_dir):
         os.makedirs(validation_dir)
-    if not os.path.exists(test_dir):
+    if validation_ratio != 0 and not os.path.exists(test_dir):
         os.makedirs(test_dir)
 
     files = DataHandler.get_data_files(blob_dir)

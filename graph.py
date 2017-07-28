@@ -52,7 +52,7 @@ def graph_projections(data):
 
 
 def main():
-    use_metrics = False
+    use_metrics = True
     dir_ = resource_filename('caveolae_cls', '/data')
     if len(sys.argv) < 2:
         print "Must input pickle filename"
@@ -60,7 +60,7 @@ def main():
     fn = os.path.join(dir_, sys.argv[1])
     if use_metrics:
         model_info, hyper_params, metrics = pickle.load(open(fn, "rb"))
-        print hyper_params
+        print metrics
         graph_metrics(metrics)
     else:
         graph_projections(pickle.load(open(fn, "rb")))

@@ -228,7 +228,17 @@ class Train:
                 sys.stdout.flush()
 
                 self.train_one_epoch(sess, ops, epoch)
+
+                # eval model
                 self.eval_one_epoch(sess, ops, epoch)
+
+                # if mil, eval instance model
+                if self.mil is not None:
+                    print "Instance eval"
+                    full_model = self.model
+                    self.model = self.model.model
+                    self.eval_one_epoch(sess, ops, epoch, mil=True)
+                    self.model = full_model
 
                 # Save the variables to disk.
                 if epoch % 10 == 0:
@@ -246,10 +256,10 @@ class Train:
                          self.model.is_training: is_training}
             if self.classification:
                 feed_dict[self.model.label_pl] = labels
-            step, _, loss, pred_val, mean, pos_idx = sess.run(
-                [ops['step'], ops['train_op'], self.model.loss, self.model.pred, self.model.logits, self.model.pos_cluster_idx], feed_dict=feed_dict)
+            step, _, loss, pred_val = sess.run(
+                [ops['step'], ops['train_op'], self.model.loss, self.model.pred], feed_dict=feed_dict)
             # train_writer.add_summary(summary, step)
-            print "****", mean, "****", len(pos_idx)
+            # print "****", mean, "****", len(pos_idx)
             if self.model.use_softmax:
                 # print pred_val
                 pred_val = np.argmax(pred_val, axis=1)
@@ -263,19 +273,16 @@ class Train:
         loss, accuracy, precision, sensitivity, specificity, f1, _ = self.calculate_metrics()
         self.update_metrics(loss, accuracy, precision, sensitivity, specificity, f1, training=True)
 
-    def eval_one_epoch(self, sess, ops, epoch):
+    def eval_one_epoch(self, sess, ops, epoch, mil=False):
         """ ops: dict mapping from string to tf ops """
-        if self.mil is not None:
-            full_model = self.model
-            self.model = self.model.model
         is_training = False
 
         ### REMOVE ### TODO
-        n = 0
-        cae_plotting_data = {}
+        # n = 0
+        # cae_plotting_data = {}
         ##############
 
-        for data, labels in self.model.get_batch(eval=True):
+        for data, labels in self.model.get_batch(eval=True, mil=mil):
             feed_dict = {self.model.input_pl: data,
                          self.model.is_training: is_training}
             if self.classification:
@@ -283,9 +290,9 @@ class Train:
             step, loss, val_loss, pred_val = sess.run([ops['step'], self.model.loss, self.model.val_loss, self.model.pred], feed_dict=feed_dict)
 
             ### REMOVE ### TODO
-            if n % 10 == 0:
-                cae_plotting_data[n] = (data[0], pred_val[0])
-            n += 1
+            # if n % 10 == 0:
+            #     cae_plotting_data[n] = (data[0], pred_val[0])
+            # n += 1
             ##############
 
             if self.model.use_softmax:
@@ -302,13 +309,10 @@ class Train:
         self.update_metrics(loss, accuracy, precision, sensitivity, specificity, f1, val_loss=val_loss, training=False)
 
         ### REMOVE ### TODO
-        filename = os.path.join(self.data_dir, str(epoch) + ".p")
-        with open(filename, "wb") as f:
-            pickle.dump(cae_plotting_data, f)
+        # filename = os.path.join(self.data_dir, str(epoch) + ".p")
+        # with open(filename, "wb") as f:
+        #     pickle.dump(cae_plotting_data, f)
         ##############
-
-        if self.mil is not None:
-            self.model = full_model
 
 
 def main():

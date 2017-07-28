@@ -44,8 +44,8 @@ class CAE_CNN(Model):
             self.loss = tf.reduce_mean(cross_entropy)
         self.val_loss = self.loss
 
-    def get_batch(self, eval=False, type='mixed'):
-        return self.data_handler.get_batch(self.input_shape, eval=eval, type=type)
+    def get_batch(self, eval=False, type='mixed', mil=False):
+        return self.data_handler.get_batch(self.input_shape, eval=eval, type=type, mil=mil)
 
     def save(self, sess, model_path, global_step=None):
         self.cnn.save(sess, model_path, global_step=global_step)

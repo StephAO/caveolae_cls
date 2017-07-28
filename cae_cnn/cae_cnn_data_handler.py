@@ -10,23 +10,25 @@ import caveolae_cls.cae.cae_model as cae
 
 
 class CAE_CNN_DataHandler(DataHandler):
-
+    # Instance = inst
+    # TODO REMEMBER about filtering blobs with <60 points
     def __init__(self, input_data_type, input_shape, use_softmax=True):
         self.input_data_type = input_data_type
         if input_data_type == "multiview" or input_data_type == "projection":
             self.data_key = 'Img3Ch'
             # p_file_dir = '/staff/2/sarocaou/data/projection_positive'
             # n_file_dir = '/staff/2/sarocaou/data/projection_negative'
-            p_file_dir_val = '/home/stephane/sfu_data/projection_positive'
-            n_file_dir_val = '/home/stephane/sfu_data/projection_negative'
-            p_file_dir = '/home/stephane/sfu_data/mil_data/positive'
-            n_file_dir = '/home/stephane/sfu_data/mil_data/negative'
+            p_file_dir_inst = '/home/stephane/sfu_data/projection_positive'
+            n_file_dir_inst = '/home/stephane/sfu_data/projection_negative'
+            p_file_dir_bag = '/home/stephane/sfu_data/mil_data/positive'
+            n_file_dir_bag = '/home/stephane/sfu_data/mil_data/negative'
 
-        super(CAE_CNN_DataHandler, self).__init__(p_file_dir, n_file_dir, use_softmax)
+        super(CAE_CNN_DataHandler, self).__init__(p_file_dir_bag, n_file_dir_bag, p_file_dir_inst=p_file_dir_inst,
+                                                  n_file_dir_inst=n_file_dir_inst, use_softmax=use_softmax)
 
-        # TODO CHECK YOUR FUCKING DIFF and CHANGE "training" back to "validation"
-        self.p_eval_files = DataHandler.get_data_files(os.path.join(p_file_dir_val, "validation"))
-        self.n_eval_files = DataHandler.get_data_files(os.path.join(n_file_dir_val, "validation"))[:len(self.p_eval_files)]
+        # # TODO CHECK YOUR FUCKING DIFF and CHANGE "training" back to "validation"
+        # self.p_eval_files_instance = DataHandler.get_data_files(os.path.join(p_file_dir_val, "validation"))
+        # self.n_eval_files_instance = DataHandler.get_data_files(os.path.join(n_file_dir_val, "validation"))[:len(self.p_eval_files_instance)]
 
         self.cae = cae.CAE(input_data_type)
         self.cae_pl = None
@@ -52,7 +54,7 @@ class CAE_CNN_DataHandler(DataHandler):
             self.features = self.cae.features
             self.replicator = self.cae.pred
 
-    def get_batch(self, batch_shape, eval=False, type='mixed'):
+    def get_batch(self, batch_shape, eval=False, type='mixed', mil=False, verbose=True):
         """
         Generator that will return batches
         :param files: List of data file names. Each file should contain a 1 element.
@@ -70,10 +72,16 @@ class CAE_CNN_DataHandler(DataHandler):
         files = []
 
         if eval:
-            if type == 'mixed' or type == 'positive':
-                files.extend(self.p_eval_files)
-            if type == 'mixed' or type == 'negative':
-                files.extend(self.n_eval_files)
+            if mil:
+                if type == 'mixed' or type == 'positive':
+                    files.extend(self.p_eval_files_mil)
+                if type == 'mixed' or type == 'negative':
+                    files.extend(self.n_eval_files_mil)
+            else:
+                if type == 'mixed' or type == 'positive':
+                    files.extend(self.p_eval_files)
+                if type == 'mixed' or type == 'negative':
+                    files.extend(self.n_eval_files)
         else:
             if type == 'mixed' or type == 'positive':
                 files.extend(self.p_train_files)
@@ -87,7 +95,7 @@ class CAE_CNN_DataHandler(DataHandler):
         # num_negatives = 0
         progress = 0
         for count, idx in enumerate(random_file_idxs):
-            if float(count) / len(random_file_idxs) >= progress + 0.05:
+            if verbose and float(count) / len(random_file_idxs) >= progress + 0.05:
                 progress += 0.05
                 print str(int(round(progress * 100))) + "%",
                 sys.stdout.flush()

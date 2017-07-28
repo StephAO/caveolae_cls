@@ -8,7 +8,7 @@ from itertools import izip
 
 class SegmentedMIL(Model):
 
-    def __init__(self, model):
+    def __init__(self, model, num_clusters=5, pos_clusters=2):
         super(SegmentedMIL, self).__init__(hp_fn="segmented_mil/hyper_params.yaml")
         # self.hp = self.model.hp
         # self.model.hp['BATCH_SIZE'] = num_instance_per_bag
@@ -21,6 +21,8 @@ class SegmentedMIL(Model):
         self.is_training = None
         self.input_pl = None
         self.label_pl = None
+        self.num_clusters = num_clusters
+        self.pos_clusters = pos_clusters
 
     def generate_input_placeholders(self):
         self.input_pl_shape = [self.num_instances_per_bag] + self.model.input_shape[1:]
@@ -114,11 +116,22 @@ class SegmentedMIL(Model):
 
         ### PRE_CLUSTER ###
         if aggregation == 'feature_cluster':
-            self.kmeans = K_Means(self.num_instances_per_bag, 2)
-            highest_pos = tf.cast(tf.argmax(self.model.pred[:, 1]), tf.int32)
-            # highest_neg = tf.cast(tf.argmin(self.model.pred[:, 1]), tf.int32)
-            self.pos_cluster_idx = self.kmeans.cluster(self.input_pl, highest_pos)
-            self.logits = tf.reduce_mean(tf.gather(self.model.pred, self.pos_cluster_idx), axis=0)
+            self.kmeans = K_Means(self.num_instances_per_bag, self.num_clusters) # create kmeans instance
+            # Get top "self.pos_clusters" rated instances to use as seeds for clustering
+            most_pos_values, most_pos_indices = tf.nn.top_k(self.model.pred[:, 1], self.pos_clusters)
+            # get indices of clusters
+            self.cluster_indices = tf.to_int32(self.kmeans.cluster(self.input_pl, most_pos_indices, self.pos_clusters))
+            # partitions instances into clusters
+            clusters_partitioned = tf.dynamic_partition(self.model.pred, self.cluster_indices, self.num_clusters)
+            # get mean of clusters
+            # means = []
+            # for i, cluster in enumerate(clusters_partitioned):
+            #     means.append(tf.reduce_mean(cluster, axis=0))
+            # select top means of clusters
+            # top_means, top_mean_indices = tf.nn.top_k(tf.concat(tf.expand_dims(means[:self.pos_clusters], 0), 0), self.pos_clusters)
+
+            print clusters_partitioned
+            self.logits = tf.reduce_mean(tf.concat(clusters_partitioned[:self.pos_clusters], 0), axis=0, keep_dims=True)
             # print self.mean
             # self.logits = tf.expand_dims(self.mean, axis=0)
             self.pred = tf.nn.softmax(self.logits, name='softmax_mil')
@@ -143,17 +156,17 @@ class SegmentedMIL(Model):
 
         self.model.generate_loss()
 
-    def get_batch(self, eval=False):
+    def get_batch(self, eval=False, mil=False):
         # data = np.zeros(self.input_pl_shape)
         # labels = np.zeros([2] if self.use_softmax else ())
-        for pos, neg in izip(self.data_handler.get_batch(self.input_pl_shape, eval=eval, type='positive'),
-                             self.data_handler.get_batch(self.input_pl_shape, eval=eval, type='negative')):
-            data = pos[0]
-            labels = np.array([[0., 1.]]) if self.use_softmax else [1.]
-            yield data, labels
-
+        for pos, neg in izip(self.data_handler.get_batch(self.input_pl_shape, eval=eval, type='positive', mil=mil),
+                             self.data_handler.get_batch(self.input_pl_shape, eval=eval, type='negative', mil=mil)):
             data = neg[0]
             labels = np.array([[1., 0.]]) if self.use_softmax else [0.]
+            yield data, labels
+
+            data = pos[0]
+            labels = np.array([[0., 1.]]) if self.use_softmax else [1.]
             yield data, labels
 
     def save(self, sess, model_path, global_step=None):
