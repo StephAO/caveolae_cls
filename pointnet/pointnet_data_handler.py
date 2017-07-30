@@ -8,9 +8,7 @@ from caveolae_cls.data_handler import DataHandler
 class PointNetDataHandler(DataHandler):
 
     def __init__(self, use_softmax=False):
-        super(PointNetDataHandler, self).__init__('/staff/2/sarocaou/data/pointcloud_positive',
-                                                  '/staff/2/sarocaou/data/pointcloud_negative',
-                                                  use_softmax)
+        super(PointNetDataHandler, self).__init__(use_softmax=use_softmax)
 
     def load_point_cloud(self, filename):
         """
@@ -82,7 +80,7 @@ class PointNetDataHandler(DataHandler):
             rotated_data[k, ...] = np.dot(shape_pc.reshape((-1, 3)), rotation_matrix)
         return rotated_data
 
-    def get_batch(self, batch_shape, eval=False, type='mixed'):
+    def get_batch(self, batch_shape, use='train', label=None, exp_cell_token=None):
         """
         Generator that will return batches
         :param files: List of data file names. Each file should contain a 1 element.
@@ -96,48 +94,28 @@ class PointNetDataHandler(DataHandler):
         self.data = np.zeros(batch_shape)
         self.labels = np.zeros([self.batch_size, 2] if self.use_softmax else self.batch_size)
 
-        if eval:
-            p_files = self.p_eval_files
-            n_files = self.n_eval_files
-        else:
-            p_files = self.p_train_files
-            n_files = self.n_train_files
+        files = self.get_data_files(use=use, label=label, exp_cell_token=exp_cell_token)
 
-        p_random_file_idxs = np.arange(len(p_files))
-        np.random.shuffle(p_random_file_idxs)
-
-        n_random_file_idxs = np.arange(len(n_files))
-        np.random.shuffle(n_random_file_idxs)
-
-        random_file_idxs = zip(p_random_file_idxs, n_random_file_idxs)
+        random_file_idxs = np.arange(len(files))
+        np.random.shuffle(random_file_idxs)
 
         i = 0
         # num_negatives = 0
         progress = 0
-        for count, idxs in enumerate(random_file_idxs):
+        for count, idx in enumerate(random_file_idxs):
             if float(count)/len(random_file_idxs) >= progress + 0.05:
                 progress += 0.05
                 print str(int(round(progress * 100))) + "%",
                 sys.stdout.flush()
                 if abs(progress - 0.95) <= 0.01:
                     print ""
-            p_idx, n_idx = idxs
-            p_f = p_files[p_idx]
-            d, l = self.load_point_cloud(p_f)
-            # if l == 0:
-            #     if num_negatives >= int(max_ratio_n * self.batch_size):
-            #         continue
-            #     num_negatives += 1
+            f = files[idx]
+            d, l = self.load_point_cloud(f)
             d = self.format_point_cloud(d, batch_shape[1])
             self.data[i] = d
             self.labels[i] = l
 
-            n_f = n_files[n_idx]
-            d, l = self.load_point_cloud(n_f)
-            d = self.format_point_cloud(d, batch_shape[1])
-            self.data[i+1] = d
-            self.labels[i+1] = l
-            i += 2
+            i += 1
             if i >= self.batch_size:
                 # Augment batched point clouds by rotation and jittering
                 self.data = PointNetDataHandler.rotate_point_cloud(self.data)

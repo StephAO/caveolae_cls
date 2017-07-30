@@ -22,17 +22,17 @@ class Train:
         self.flags = FLAGS
         # Select model
         if FLAGS.model == "pointnet":
-            self.model = pn.PointNet()
+            self.model = pn.PointNet(use_mil=(FLAGS.mil is not None))
             FLAGS.input_type = "pointcloud"
             self.classification = True
         elif FLAGS.model == "cnn":
-            self.model = cnn.CNN(FLAGS.input_type)
+            self.model = cnn.CNN(FLAGS.input_type, use_mil=(FLAGS.mil is not None))
             self.classification = True
         elif FLAGS.model == "cae":
-            self.model = cae.CAE(FLAGS.input_type)
+            self.model = cae.CAE(FLAGS.input_type, use_mil=False)
             self.classification = False
         elif FLAGS.model == "cae_cnn":
-            self.model = cae_cnn.CAE_CNN(FLAGS.input_type)
+            self.model = cae_cnn.CAE_CNN(FLAGS.input_type, use_mil=(FLAGS.mil is not None))
             self.classification = True
         else:
             raise NotImplementedError("%s is not an implemented model" % FLAGS.model)
@@ -200,13 +200,6 @@ class Train:
                     optimizer = tf.train.AdamOptimizer(learning_rate)
                 train_op = optimizer.minimize(self.model.loss, global_step=step)
 
-            # Add summary writers
-            # merged = tf.merge_all_summaries()
-            # merged = tf.summary.merge_all()
-            # train_writer = tf.summary.FileWriter(os.path.join(self.data_dir, 'train'),
-            #                                      sess.graph)
-            # test_writer = tf.summary.FileWriter(os.path.join(self.data_dir, 'test'))
-
             # Init variables
             init = tf.global_variables_initializer()
 
@@ -229,12 +222,12 @@ class Train:
 
                 self.train_one_epoch(sess, ops, epoch)
 
-                # eval model
+                # eval_ model
                 self.eval_one_epoch(sess, ops, epoch)
 
-                # if mil, eval instance model
+                # if mil, eval_ instance model
                 if self.mil is not None:
-                    print "Instance eval"
+                    print "Instance level evaluation"
                     full_model = self.model
                     self.model = self.model.model
                     self.eval_one_epoch(sess, ops, epoch, mil=True)
@@ -282,7 +275,7 @@ class Train:
         # cae_plotting_data = {}
         ##############
 
-        for data, labels in self.model.get_batch(eval=True, mil=mil):
+        for data, labels in self.model.get_batch(eval_=True):
             feed_dict = {self.model.input_pl: data,
                          self.model.is_training: is_training}
             if self.classification:
@@ -321,7 +314,7 @@ def main():
                         help='GPU to use [default: GPU 0]')
     parser.add_argument('--model', default='pointnet',
                         help='Model type: pointnet, cnn, cae_cnn [default: pointnet]')
-    parser.add_argument('--mil', default='None',
+    parser.add_argument('--mil', default=None,
                         help='Multiple instance method: seg, sub, or None [default: None]')
     parser.add_argument('--input_type', default='projection',
                         help='pointcloud or projection [default: projection]')

@@ -9,16 +9,10 @@ from caveolae_cls.data_handler import DataHandler
 
 class CAEDataHandler(DataHandler):
 
-    def __init__(self, input_data_type):
+    def __init__(self, input_data_type, use_mil=False):
         if input_data_type == "multiview" or input_data_type == "projection":
             self.data_key = 'Img3Ch'
-            # p_file_dir = '/staff/2/sarocaou/data/projection_positive'
-            # n_file_dir = '/staff/2/sarocaou/data/projection_negative'
-            p_file_dir = '/home/stephane/sfu_data/mil_data/positive'
-            n_file_dir = '/home/stephane/sfu_data/mil_data/negative'
-            # p_file_dir = '/staff/2/sarocaou/data/simple_projection'
-            # n_file_dir = '/staff/2/sarocaou/data/simple_projection'
-        super(CAEDataHandler, self).__init__(p_file_dir, n_file_dir)
+        super(CAEDataHandler, self).__init__(use_mil=use_mil)
 
     def load_input_data(self, filename, softmax=True):
         """
@@ -35,7 +29,7 @@ class CAEDataHandler(DataHandler):
             label = l
         return data, label
 
-    def get_batch(self, batch_shape, eval=False, type='mixed'):
+    def get_batch(self, batch_shape, use='train', label=None, exp_cell_token=None):
         """
         Generator that will return batches
         :param files: List of data file names. Each file should contain a 1 element.
@@ -45,18 +39,7 @@ class CAEDataHandler(DataHandler):
         self.batch_size = batch_shape[0]
         self.input = np.zeros(batch_shape)
 
-        files = []
-
-        if eval:
-            if type == 'mixed' or type == 'positive':
-                files.extend(self.p_eval_files)
-            if type == 'mixed' or type == 'negative':
-                files.extend(self.n_eval_files)
-        else:
-            if type == 'mixed' or type == 'positive':
-                files.extend(self.p_train_files)
-            if type == 'mixed' or type == 'negative':
-                files.extend(self.n_train_files)
+        files = self.get_data_files(use=use, label=label, exp_cell_token=exp_cell_token)
 
         random_file_idxs = np.arange(len(files))
         np.random.shuffle(random_file_idxs)

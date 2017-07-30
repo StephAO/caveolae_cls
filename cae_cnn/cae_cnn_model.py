@@ -7,12 +7,13 @@ from caveolae_cls.model import Model
 
 class CAE_CNN(Model):
 
-    def __init__(self, input_data_type, use_softmax=True):
+    def __init__(self, input_data_type, use_softmax=True, use_mil=False):
         super(CAE_CNN, self).__init__(hp_fn="cae_cnn/hyper_params.yaml")
         self.input_shape = [self.hp['BATCH_SIZE']] + DH.feature_shape  #
         if input_data_type == "multiview" or input_data_type == "projection":
             self.cae_input_shape = [self.hp['BATCH_SIZE'], DH.proj_dim, DH.proj_dim, 3]
-        self.data_handler = CAE_CNN_DataHandler(input_data_type, self.cae_input_shape, use_softmax=use_softmax)
+        self.data_handler = CAE_CNN_DataHandler(input_data_type, self.cae_input_shape,
+                                                use_softmax=use_softmax, use_mil=use_mil)
         self.is_training = None
         self.use_softmax = use_softmax
         self.cnn = cnn.CNN(input_data_type, use_softmax=use_softmax, own_data_handler=False)
@@ -44,8 +45,8 @@ class CAE_CNN(Model):
             self.loss = tf.reduce_mean(cross_entropy)
         self.val_loss = self.loss
 
-    def get_batch(self, eval=False, type='mixed', mil=False):
-        return self.data_handler.get_batch(self.input_shape, eval=eval, type=type, mil=mil)
+    def get_batch(self, use='train', label=None, mil=False):
+        return self.data_handler.get_batch(self.input_shape, use=use, label=label, mil=mil)
 
     def save(self, sess, model_path, global_step=None):
         self.cnn.save(sess, model_path, global_step=global_step)

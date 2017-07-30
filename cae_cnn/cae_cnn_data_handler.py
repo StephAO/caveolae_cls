@@ -12,23 +12,16 @@ import caveolae_cls.cae.cae_model as cae
 class CAE_CNN_DataHandler(DataHandler):
     # Instance = inst
     # TODO REMEMBER about filtering blobs with <60 points
-    def __init__(self, input_data_type, input_shape, use_softmax=True):
+    def __init__(self, input_data_type, input_shape, use_softmax=True, use_mil=False):
         self.input_data_type = input_data_type
         if input_data_type == "multiview" or input_data_type == "projection":
             self.data_key = 'Img3Ch'
-            # p_file_dir = '/staff/2/sarocaou/data/projection_positive'
-            # n_file_dir = '/staff/2/sarocaou/data/projection_negative'
-            p_file_dir_inst = '/home/stephane/sfu_data/projection_positive'
-            n_file_dir_inst = '/home/stephane/sfu_data/projection_negative'
-            p_file_dir_bag = '/home/stephane/sfu_data/mil_data/positive'
-            n_file_dir_bag = '/home/stephane/sfu_data/mil_data/negative'
 
-        super(CAE_CNN_DataHandler, self).__init__(p_file_dir_bag, n_file_dir_bag, p_file_dir_inst=p_file_dir_inst,
-                                                  n_file_dir_inst=n_file_dir_inst, use_softmax=use_softmax)
+        super(CAE_CNN_DataHandler, self).__init__(use_softmax=use_softmax, use_mil=use_mil)
 
         # # TODO CHECK YOUR FUCKING DIFF and CHANGE "training" back to "validation"
-        # self.p_eval_files_instance = DataHandler.get_data_files(os.path.join(p_file_dir_val, "validation"))
-        # self.n_eval_files_instance = DataHandler.get_data_files(os.path.join(n_file_dir_val, "validation"))[:len(self.p_eval_files_instance)]
+        # self.p_eval_files_instance = DataHandler.get_data_filepaths(os.path.join(p_file_dir_val, "validation"))
+        # self.n_eval_files_instance = DataHandler.get_data_filepaths(os.path.join(n_file_dir_val, "validation"))[:len(self.p_eval_files_instance)]
 
         self.cae = cae.CAE(input_data_type)
         self.cae_pl = None
@@ -54,12 +47,15 @@ class CAE_CNN_DataHandler(DataHandler):
             self.features = self.cae.features
             self.replicator = self.cae.pred
 
-    def get_batch(self, batch_shape, eval=False, type='mixed', mil=False, verbose=True):
+    def get_batch(self, batch_shape, use='train', label=None, exp_cell_token=None, verbose=True):
         """
         Generator that will return batches
-        :param files: List of data file names. Each file should contain a 1 element.
-        :param batch_shape: Expected shape of a single batch
-        :return: Generates batches
+        :param batch_shape: shape of batch to return
+        :param use: What the batch will be used for ('train', 'val', or 'test')
+        :param label: Only used for mil (otherwise None). For mil, either 'pos' or 'neg'
+        :param exp_cell_token: Unique identifier of cell. 100 * experiment number + cell number
+        :param verbose: Print stuff or not
+        :return: yields batches
         """
         batch_size = batch_shape[0]
         sub_batch_size = self.input_shape[0]
@@ -69,24 +65,11 @@ class CAE_CNN_DataHandler(DataHandler):
         features = np.zeros(batch_shape)
         labels = np.zeros([batch_size, 2] if self.use_softmax else batch_size)
 
-        files = []
+        files = self.get_data_files(use=use, label=label, exp_cell_token=exp_cell_token)
 
-        if eval:
-            if mil:
-                if type == 'mixed' or type == 'positive':
-                    files.extend(self.p_eval_files_mil)
-                if type == 'mixed' or type == 'negative':
-                    files.extend(self.n_eval_files_mil)
-            else:
-                if type == 'mixed' or type == 'positive':
-                    files.extend(self.p_eval_files)
-                if type == 'mixed' or type == 'negative':
-                    files.extend(self.n_eval_files)
-        else:
-            if type == 'mixed' or type == 'positive':
-                files.extend(self.p_train_files)
-            if type == 'mixed' or type == 'negative':
-                files.extend(self.n_train_files)
+        if len(files) < batch_size:
+            print "Not enough files to create a batch"
+            return
 
         random_file_idxs = np.arange(len(files))
         np.random.shuffle(random_file_idxs)
@@ -103,19 +86,16 @@ class CAE_CNN_DataHandler(DataHandler):
                     print ""
             f = files[idx]
             d, l = self.cae.data_handler.load_input_data(f, softmax=self.use_softmax)
-            # if l == 0:
-            #     if num_negatives >= int(max_ratio_n * self.batch_size):
-            #         continue
-            #     num_negatives += 1
             data[i % sub_batch_size] = d
             labels[i] = l
 
             i += 1
             if i % sub_batch_size == 0:
-                # Yield batch
                 features[i - sub_batch_size: i] = self.sess.run(self.cae.features, feed_dict={self.cae_pl: data})
 
             if i >= batch_size:
                 yield features, labels
                 i = 0
-                # num_negatives = 0
+
+                if len(random_file_idxs) - count < batch_size:
+                    break

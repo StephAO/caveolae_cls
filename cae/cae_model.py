@@ -9,7 +9,7 @@ from caveolae_cls.cae.cae_data_handler import CAEDataHandler
 
 class CAE(Model):
 
-    def __init__(self, input_data_type, own_data_handler=True):
+    def __init__(self, input_data_type, own_data_handler=True, use_mil=False):
         super(CAE, self).__init__(hp_fn="cae/hyper_params.yaml")
         if own_data_handler:
             self.data_handler = CAEDataHandler(input_data_type)
@@ -23,8 +23,8 @@ class CAE(Model):
         self.gaussian_kernel = None
         self.use_gauss = True
 
-    def get_batch(self, eval=False, type='mixed'):
-        return self.data_handler.get_batch(self.input_shape, eval=eval, type=type)
+    def get_batch(self, use='train', label=None):
+        return self.data_handler.get_batch(self.input_shape, use=use, label=label)
 
     def generate_input_placeholders(self):
         self.input_pl = tf.placeholder(tf.float32, shape=self.input_shape)

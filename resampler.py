@@ -89,7 +89,7 @@ def create_training_validation(blob_dir, target_dir, input_type, validation_rati
     if validation_ratio != 0 and not os.path.exists(test_dir):
         os.makedirs(test_dir)
 
-    files = DataHandler.get_data_files(blob_dir)
+    files = DataHandler.get_data_filepaths(blob_dir)
     np.random.shuffle(files)
 
     num_val = int(validation_ratio * len(files))

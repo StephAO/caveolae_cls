@@ -2,17 +2,15 @@ import tensorflow as tf
 import numpy as np
 import caveolae_cls.nn_layers as nn_layers
 from caveolae_cls.model import Model
-from caveolae_cls.pointnet.transform_nets import \
-                                    input_transform_net, feature_transform_net
-from caveolae_cls.pointnet.pointnet_data_handler import \
-                                    PointNetDataHandler
+from caveolae_cls.pointnet.transform_nets import input_transform_net, feature_transform_net
+from caveolae_cls.pointnet.pointnet_data_handler import PointNetDataHandler
 
 
 class PointNet(Model):
 
-    def __init__(self, use_softmax=True):
+    def __init__(self, use_softmax=True, use_mil=False):
         super(PointNet, self).__init__(hp_fn="pointnet/hyper_params.yaml")
-        self.data_handler = PointNetDataHandler(use_softmax=use_softmax)
+        self.data_handler = PointNetDataHandler(use_softmax=use_softmax, use_mil=use_mil)
         self.end_points = None
         self.reg_weight = 0.001
         self.output_shape = []
@@ -143,7 +141,5 @@ class PointNet(Model):
         self.loss = classify_loss + mat_diff_loss * self.reg_weight
         self.val_loss = self.loss
 
-    def get_batch(self, eval=False, type='mixed'):
-        return self.data_handler.get_batch([self.hp['BATCH_SIZE'],
-                                            self.hp['NUM_POINTS'], 3],
-                                           eval=eval, type=type)
+    def get_batch(self, use='train', label=None):
+        return self.data_handler.get_batch([self.hp['BATCH_SIZE'],  self.hp['NUM_POINTS'], 3], use=use, label=label)

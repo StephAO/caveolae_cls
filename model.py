@@ -49,7 +49,7 @@ class Model:
         print "Model restored from file: %s" % most_recent_ckpt
 
     @abstractmethod
-    def get_batch(self, eval=False, type='mixed'):
+    def get_batch(self, use='train', label=None):
         pass
 
     @abstractmethod

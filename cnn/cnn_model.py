@@ -7,10 +7,10 @@ from caveolae_cls.cnn.cnn_data_handler import CNNDataHandler
 
 class CNN(Model):
 
-    def __init__(self, input_data_type, use_softmax=True, own_data_handler=True):
+    def __init__(self, input_data_type, use_softmax=True, use_mil=False, own_data_handler=True):
         super(CNN, self).__init__(hp_fn="cnn/hyper_params.yaml")
         if own_data_handler:
-            self.data_handler = CNNDataHandler(input_data_type, use_softmax)
+            self.data_handler = CNNDataHandler(input_data_type, use_softmax=use_softmax, use_mil=use_mil)
         if input_data_type == "multiview" or input_data_type == "projection":
             self.input_shape = [self.hp['BATCH_SIZE'], DH.proj_dim, DH.proj_dim, 3]
         self.is_training = None
@@ -95,6 +95,5 @@ class CNN(Model):
             self.loss = tf.reduce_mean(cross_entropy)
         self.val_loss = self.loss
 
-    def get_batch(self, eval=False, type='mixed'):
-        return self.data_handler.get_batch(self.input_shape, eval=eval,
-                                           type=type)
+    def get_batch(self, use='train', label=None):
+        return self.data_handler.get_batch(self.input_shape, use=use, label=label)

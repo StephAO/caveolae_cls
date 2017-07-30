@@ -7,16 +7,12 @@ from caveolae_cls.data_handler import DataHandler
 
 class CNNDataHandler(DataHandler):
 
-    def __init__(self, input_data_type, use_softmax=False):
+    def __init__(self, input_data_type, use_softmax=False, use_mil=False):
         self.input_data_type = input_data_type
         if input_data_type == "multiview" or input_data_type == "projection":
             self.data_key = 'Img3Ch'
-            # p_file_dir = '/staff/2/sarocaou/data/projection_positive'
-            # n_file_dir = '/staff/2/sarocaou/data/projection_negative'
-            p_file_dir = '/home/stephane/sfu_data/projection_positive'
-            n_file_dir = '/home/stephane/sfu_data/projection_negative'
 
-        super(CNNDataHandler, self).__init__(p_file_dir, n_file_dir, use_softmax)
+        super(CNNDataHandler, self).__init__(use_softmax=use_softmax, use_mil=use_mil)
 
     def load_input_data(self, filename):
         """
@@ -31,29 +27,20 @@ class CNNDataHandler(DataHandler):
             label = l
         return data, label
 
-    def get_batch(self, batch_shape, eval=False, type='mixed'):
+    def get_batch(self, batch_shape, use='train', label=None, exp_cell_token=None):
         """
         Generator that will return batches
         :param files: List of data file names. Each file should contain a 1 element.
         :param batch_shape: Expected shape of a single batch
+        :param use: What batch will be used for (options: 'train', 'val', 'test')
+        :param label
         :return: Generates batches
         """
         self.batch_size = batch_shape[0]
         self.data = np.zeros(batch_shape)
         self.labels = np.zeros([self.batch_size, 2] if self.use_softmax else self.batch_size)
 
-        files = []
-
-        if eval:
-            if type == 'mixed' or type == 'positive':
-                files.extend(self.p_eval_files)
-            if type == 'mixed' or type == 'negative':
-                files.extend(self.n_eval_files)
-        else:
-            if type == 'mixed' or type == 'positive':
-                files.extend(self.p_train_files)
-            if type == 'mixed' or type == 'negative':
-                files.extend(self.n_train_files)
+        files = self.get_data_files(use=use, label=label, exp_cell_token=exp_cell_token)
 
         random_file_idxs = np.arange(len(files))
         np.random.shuffle(random_file_idxs)

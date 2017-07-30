@@ -156,18 +156,57 @@ class SegmentedMIL(Model):
 
         self.model.generate_loss()
 
-    def get_batch(self, eval=False, mil=False):
-        # data = np.zeros(self.input_pl_shape)
-        # labels = np.zeros([2] if self.use_softmax else ())
-        for pos, neg in izip(self.data_handler.get_batch(self.input_pl_shape, eval=eval, type='positive', mil=mil),
-                             self.data_handler.get_batch(self.input_pl_shape, eval=eval, type='negative', mil=mil)):
-            data = neg[0]
-            labels = np.array([[1., 0.]]) if self.use_softmax else [0.]
-            yield data, labels
+    def get_batch(self, use='train'):
 
-            data = pos[0]
-            labels = np.array([[0., 1.]]) if self.use_softmax else [1.]
-            yield data, labels
+        neg_file_tokens = self.data_handler.bag[use]['neg'].keys()
+        pos_file_tokens = self.data_handler.bag[use]['pos'].keys()
+
+        neg_token_gen = (token for token in neg_file_tokens)
+        pos_token_gen = (token for token in pos_file_tokens)
+        
+        neg_token = next(neg_token_gen, None)
+        pos_token = next(pos_token_gen, None)
+        neg_gen = self.data_handler.get_batch(self.input_pl_shape, use=use, label='neg', exp_cell_token=neg_token)
+        pos_gen = self.data_handler.get_batch(self.input_pl_shape, use=use, label='pos', exp_cell_token=pos_token)
+        
+        exhausted = False
+        
+        while True:
+            neg_bag, _ = next(neg_gen, None)
+            while neg_bag is None:
+                neg_token = next(neg_token_gen, None)
+                if neg_token is None:
+                    exhausted = True
+                    break
+                neg_gen = self.data_handler.get_batch(self.input_pl_shape, use=use, label='neg', 
+                                                      exp_cell_token=neg_token)
+                neg_bag, _ = next(neg_gen, None)
+                if neg_bag is None:
+                    print "Got 0 bags from neg cell %d, num instances per bag %d, num instances in cell %d" % \
+                          (neg_token, self.num_instances_per_bag, len(self.data_handler.bag[use]['neg'][neg_token]))
+            neg_label = np.array([[1., 0.]]) if self.use_softmax else [0.]
+
+            pos_bag, _ = next(pos_gen, None)
+
+            while pos_bag is None:
+                pos_token = next(pos_token_gen, None)
+                if pos_token is None:
+                    exhausted = True
+                    break
+                pos_gen = self.data_handler.get_batch(self.input_pl_shape, use=use, label='pos',
+                                                      exp_cell_token=pos_token)
+                pos_bag, _ = next(pos_gen, None)
+                if pos_bag is None:
+                    print "Got 0 bags from pos cell %d, num instances per bag %d, num instances in cell %d" % \
+                          (pos_token, self.num_instances_per_bag, len(self.data_handler.bag[use]['pos'][pos_token]))
+            pos_label = np.array([[0., 1.]]) if self.use_softmax else [1.]
+
+            if exhausted:
+                break
+
+            yield neg_bag, neg_label
+            yield pos_bag, pos_label
+
 
     def save(self, sess, model_path, global_step=None):
         self.model.save(sess, model_path, global_step=global_step)
