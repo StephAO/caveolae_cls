@@ -275,7 +275,7 @@ class Train:
         # cae_plotting_data = {}
         ##############
 
-        for data, labels in self.model.get_batch(eval_=True):
+        for data, labels in self.model.get_batch(use='val'):
             feed_dict = {self.model.input_pl: data,
                          self.model.is_training: is_training}
             if self.classification:

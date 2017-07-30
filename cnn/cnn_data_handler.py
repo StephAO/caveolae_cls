@@ -41,6 +41,8 @@ class CNNDataHandler(DataHandler):
         self.labels = np.zeros([self.batch_size, 2] if self.use_softmax else self.batch_size)
 
         files = self.get_data_files(use=use, label=label, exp_cell_token=exp_cell_token)
+        
+        print "Using %d files" % len(files)
 
         random_file_idxs = np.arange(len(files))
         np.random.shuffle(random_file_idxs)

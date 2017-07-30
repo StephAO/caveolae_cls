@@ -114,16 +114,12 @@ class DataHandler:
             else:
                 files = self.bag[use][label][exp_cell_token]
         else:
-            files = []
             if use == 'train':
-                files.extend(self.p_train_files)
-                files.extend(self.n_train_files)
+                files = self.train_files
             elif use == 'val':
-                files.extend(self.p_val_files)
-                files.extend(self.n_val_files)
+                files = self.val_files
             elif use == 'test':
-                files.extend(self.p_test_files)
-                files.extend(self.n_test_files)
+                files = self.p_test_files
 
         return files
 
