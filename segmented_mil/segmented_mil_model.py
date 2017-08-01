@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+import sys
 from caveolae_cls.k_means.k_means import K_Means
 from caveolae_cls.model import Model
 import caveolae_cls.nn_layers as nn_layers
@@ -76,7 +77,7 @@ class SegmentedMIL(Model):
         positives = tf.gather(self.model.pred, indices=tf.squeeze(pos_indices))
         return tf.reduce_mean(positives, axis=0)
 
-    def generate_model(self, bn_decay=None, aggregation='feature_cluster'):
+    def generate_model(self, bn_decay=None, aggregation='noisy_and'):
         # i_preds = [None] * self.num_instances_per_bag
         self.model.generate_model(input_pl=self.input_pl, bn_decay=bn_decay, reuse=False)
         # i_preds[i] = tf.expand_dims(self.model.pred, 1)
@@ -130,7 +131,6 @@ class SegmentedMIL(Model):
             # select top means of clusters
             # top_means, top_mean_indices = tf.nn.top_k(tf.concat(tf.expand_dims(means[:self.pos_clusters], 0), 0), self.pos_clusters)
 
-            print clusters_partitioned
             self.logits = tf.reduce_mean(tf.concat(clusters_partitioned[:self.pos_clusters], 0), axis=0, keep_dims=True)
             # print self.mean
             # self.logits = tf.expand_dims(self.mean, axis=0)
@@ -166,27 +166,29 @@ class SegmentedMIL(Model):
         
         neg_token = next(neg_token_gen, None)
         pos_token = next(pos_token_gen, None)
-        neg_gen = self.data_handler.get_batch(self.input_pl_shape, use=use, label='neg', exp_cell_token=neg_token)
-        pos_gen = self.data_handler.get_batch(self.input_pl_shape, use=use, label='pos', exp_cell_token=pos_token)
+        neg_gen = self.data_handler.get_batch(self.input_pl_shape, use=use, label='neg', exp_cell_token=neg_token,
+                                              verbose=False)
+        pos_gen = self.data_handler.get_batch(self.input_pl_shape, use=use, label='pos', exp_cell_token=pos_token,
+                                              verbose=False)
         
         exhausted = False
         
         while True:
-            neg_bag, _ = next(neg_gen, None)
+            neg_bag, _ = next(neg_gen, (None, None))
             while neg_bag is None:
                 neg_token = next(neg_token_gen, None)
                 if neg_token is None:
                     exhausted = True
                     break
                 neg_gen = self.data_handler.get_batch(self.input_pl_shape, use=use, label='neg', 
-                                                      exp_cell_token=neg_token)
-                neg_bag, _ = next(neg_gen, None)
-                if neg_bag is None:
-                    print "Got 0 bags from neg cell %d, num instances per bag %d, num instances in cell %d" % \
-                          (neg_token, self.num_instances_per_bag, len(self.data_handler.bag[use]['neg'][neg_token]))
+                                                      exp_cell_token=neg_token, verbose=False)
+                neg_bag, _ = next(neg_gen, (None, None))
+                # if neg_bag is None:
+                #     print "Got 0 bags from neg cell %d, num instances per bag %d, num instances in cell %d" % \
+                #           (neg_token, self.num_instances_per_bag, len(self.data_handler.bag[use]['neg'][neg_token]))
             neg_label = np.array([[1., 0.]]) if self.use_softmax else [0.]
 
-            pos_bag, _ = next(pos_gen, None)
+            pos_bag, _ = next(pos_gen, (None, None))
 
             while pos_bag is None:
                 pos_token = next(pos_token_gen, None)
@@ -194,11 +196,11 @@ class SegmentedMIL(Model):
                     exhausted = True
                     break
                 pos_gen = self.data_handler.get_batch(self.input_pl_shape, use=use, label='pos',
-                                                      exp_cell_token=pos_token)
-                pos_bag, _ = next(pos_gen, None)
-                if pos_bag is None:
-                    print "Got 0 bags from pos cell %d, num instances per bag %d, num instances in cell %d" % \
-                          (pos_token, self.num_instances_per_bag, len(self.data_handler.bag[use]['pos'][pos_token]))
+                                                      exp_cell_token=pos_token, verbose=False)
+                pos_bag, _ = next(pos_gen, (None, None))
+                # if pos_bag is None:
+                #     print "Got 0 bags from pos cell %d, num instances per bag %d, num instances in cell %d" % \
+                #           (pos_token, self.num_instances_per_bag, len(self.data_handler.bag[use]['pos'][pos_token]))
             pos_label = np.array([[0., 1.]]) if self.use_softmax else [1.]
 
             if exhausted:
@@ -206,6 +208,10 @@ class SegmentedMIL(Model):
 
             yield neg_bag, neg_label
             yield pos_bag, pos_label
+            print "#",
+            sys.stdout.flush()
+
+        print ""
 
 
     def save(self, sess, model_path, global_step=None):

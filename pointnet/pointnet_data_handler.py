@@ -80,7 +80,7 @@ class PointNetDataHandler(DataHandler):
             rotated_data[k, ...] = np.dot(shape_pc.reshape((-1, 3)), rotation_matrix)
         return rotated_data
 
-    def get_batch(self, batch_shape, use='train', label=None, exp_cell_token=None):
+    def get_batch(self, batch_shape, use='train', label=None, exp_cell_token=None, verbose=True):
         """
         Generator that will return batches
         :param files: List of data file names. Each file should contain a 1 element.
@@ -103,7 +103,7 @@ class PointNetDataHandler(DataHandler):
         # num_negatives = 0
         progress = 0
         for count, idx in enumerate(random_file_idxs):
-            if float(count)/len(random_file_idxs) >= progress + 0.05:
+            if verbose and float(count)/len(random_file_idxs) >= progress + 0.05:
                 progress += 0.05
                 print str(int(round(progress * 100))) + "%",
                 sys.stdout.flush()

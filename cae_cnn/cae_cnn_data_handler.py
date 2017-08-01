@@ -68,7 +68,7 @@ class CAE_CNN_DataHandler(DataHandler):
         files = self.get_data_files(use=use, label=label, exp_cell_token=exp_cell_token)
 
         if len(files) < batch_size:
-            print "Not enough files to create a batch"
+            # print "Not enough files to create a batch"
             return
 
         random_file_idxs = np.arange(len(files))
@@ -91,11 +91,33 @@ class CAE_CNN_DataHandler(DataHandler):
 
             i += 1
             if i % sub_batch_size == 0:
-                features[i - sub_batch_size: i] = self.sess.run(self.cae.features, feed_dict={self.cae_pl: data})
+                features[i - sub_batch_size : i] = self.sess.run(self.cae.features, feed_dict={self.cae_pl: data})
 
             if i >= batch_size:
                 yield features, labels
                 i = 0
 
-                if len(random_file_idxs) - count < batch_size:
+                if len(files) - count < batch_size:
                     break
+
+        # if greater than 10% complete of a batch, repeat instances to complete batch
+        # if i > 0.25 * batch_size:
+        #     # COMPLETE SUB BATCH
+        #     have = i % sub_batch_size # num existing in sub batch
+        #     if have != 0:
+        #         need = sub_batch_size - have # num more needed in sub batch
+        #         data[have:] = [data[x % have] for x in xrange(need)]
+        #         labels[i : i + need] = [labels[x % have] for x in xrange(need)]
+        #         i += need
+        #         features[i - sub_batch_size : i] = self.sess.run(self.cae.features, feed_dict={self.cae_pl: data})
+        #
+        #     # COMPLETE BATCH
+        #     j = 0
+        #     have = i
+        #     while i < batch_size:
+        #         features[i : i + sub_batch_size] = features[j % have: (j % have) + sub_batch_size]
+        #         labels[i : i + sub_batch_size] = labels[j % have: (j % have) + sub_batch_size]
+        #         i += sub_batch_size
+        #         j += sub_batch_size
+        #
+        #     yield features, labels

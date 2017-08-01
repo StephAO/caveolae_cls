@@ -101,7 +101,7 @@ class Train:
             self.decay_step,  # Decay step.
             self.decay_rate,  # Decay rate.
             staircase=True)
-        learning_rate = tf.maximum(learning_rate, 0.00001)  # CLIP THE LEARNING RATE!
+        learning_rate = tf.maximum(learning_rate, self.base_learning_rate * 0.001)  # CLIP THE LEARNING RATE!
         return learning_rate # self.base_learning_rate # TODO fix this
 
     def get_bn_decay(self, batch):
@@ -214,7 +214,17 @@ class Train:
             ops = {'train_op': train_op, 'step': step}
 
             print "Initialization evaluation"
-            self.eval_one_epoch(sess, ops, -1)
+            # self.eval_one_epoch(sess, ops, -1)
+            print "Instance level TRAINING eval"
+            full_model = self.model
+            self.model = self.model.model
+            self.eval_one_epoch(sess, ops, -1, use_training_data=True)
+            self.model = full_model
+            print "Instance level VALIDATION eval"
+            full_model = self.model
+            self.model = self.model.model
+            self.eval_one_epoch(sess, ops, -1, use_training_data=False)
+            self.model = full_model
 
             for epoch in range(self.max_epoch):
                 print '-' * 10 + ' Epoch: %03d ' % epoch + '-' * 10
@@ -223,15 +233,21 @@ class Train:
                 self.train_one_epoch(sess, ops, epoch)
 
                 # eval_ model
-                self.eval_one_epoch(sess, ops, epoch)
+                # self.eval_one_epoch(sess, ops, epoch)
 
                 # if mil, eval_ instance model
                 if self.mil is not None:
-                    print "Instance level evaluation"
+                    print "Instance level TRAINING eval"
                     full_model = self.model
                     self.model = self.model.model
-                    self.eval_one_epoch(sess, ops, epoch, mil=True)
+                    self.eval_one_epoch(sess, ops, epoch, use_training_data=True)
                     self.model = full_model
+                    print "Instance level VALIDATION eval"
+                    full_model = self.model
+                    self.model = self.model.model
+                    self.eval_one_epoch(sess, ops, epoch, use_training_data=False)
+                    self.model = full_model
+
 
                 # Save the variables to disk.
                 if epoch % 10 == 0:
@@ -266,7 +282,7 @@ class Train:
         loss, accuracy, precision, sensitivity, specificity, f1, _ = self.calculate_metrics()
         self.update_metrics(loss, accuracy, precision, sensitivity, specificity, f1, training=True)
 
-    def eval_one_epoch(self, sess, ops, epoch, mil=False):
+    def eval_one_epoch(self, sess, ops, epoch, use_training_data=False):
         """ ops: dict mapping from string to tf ops """
         is_training = False
 
@@ -274,8 +290,8 @@ class Train:
         # n = 0
         # cae_plotting_data = {}
         ##############
-
-        for data, labels in self.model.get_batch(use='val'):
+        use = 'train' if use_training_data else 'val'
+        for data, labels in self.model.get_batch(use=use):
             feed_dict = {self.model.input_pl: data,
                          self.model.is_training: is_training}
             if self.classification:
