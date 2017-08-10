@@ -9,7 +9,7 @@ from itertools import izip
 
 class SegmentedMIL(Model):
 
-    def __init__(self, model, num_clusters=5, pos_clusters=2):
+    def __init__(self, model, num_clusters=9, pos_clusters=3):
         super(SegmentedMIL, self).__init__(hp_fn="segmented_mil/hyper_params.yaml")
         # self.hp = self.model.hp
         # self.model.hp['BATCH_SIZE'] = num_instance_per_bag
@@ -77,7 +77,7 @@ class SegmentedMIL(Model):
         positives = tf.gather(self.model.pred, indices=tf.squeeze(pos_indices))
         return tf.reduce_mean(positives, axis=0)
 
-    def generate_model(self, bn_decay=None, aggregation='noisy_and'):
+    def generate_model(self, bn_decay=None, aggregation='two_means'):
         # i_preds = [None] * self.num_instances_per_bag
         self.model.generate_model(input_pl=self.input_pl, bn_decay=bn_decay, reuse=False)
         # i_preds[i] = tf.expand_dims(self.model.pred, 1)

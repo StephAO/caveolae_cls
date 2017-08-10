@@ -22,17 +22,17 @@ class Train:
         self.flags = FLAGS
         # Select model
         if FLAGS.model == "pointnet":
-            self.model = pn.PointNet(use_mil=(FLAGS.mil is not None))
+            self.model = pn.PointNet(use_organized_data=(FLAGS.mil is not None))
             FLAGS.input_type = "pointcloud"
             self.classification = True
         elif FLAGS.model == "cnn":
-            self.model = cnn.CNN(FLAGS.input_type, use_mil=(FLAGS.mil is not None))
+            self.model = cnn.CNN(FLAGS.input_type, use_organized_data=True)
             self.classification = True
         elif FLAGS.model == "cae":
-            self.model = cae.CAE(FLAGS.input_type, use_mil=False)
+            self.model = cae.CAE(FLAGS.input_type, use_organized_data=True)
             self.classification = False
         elif FLAGS.model == "cae_cnn":
-            self.model = cae_cnn.CAE_CNN(FLAGS.input_type, use_mil=(FLAGS.mil is not None))
+            self.model = cae_cnn.CAE_CNN(FLAGS.input_type, use_organized_data=True)
             self.classification = True
         else:
             raise NotImplementedError("%s is not an implemented model" % FLAGS.model)
@@ -50,6 +50,7 @@ class Train:
         # Other params
         self.gpu_index = FLAGS.gpu
         self.optimizer = FLAGS.optimizer
+        self.load_cnn = FLAGS.load_cnn
 
         self.batch_size = self.model.hp["BATCH_SIZE"]
         self.max_epoch = self.model.hp["NUM_EPOCHS"]
@@ -72,7 +73,9 @@ class Train:
         self.data_fn = FLAGS.input_type + '_' + FLAGS.model + '_' + ((self.mil + '_') if self.mil is not None else '') \
                        + time.strftime("%Y-%m-%d_%H:%M")
         self.data_fn = os.path.join(self.data_dir, self.data_fn)
-        self.model_name = self.flags.model if FLAGS.model_name is None else FLAGS.model_name
+
+        self.model_name = self.flags.model + ("" if self.mil is None else "_" + self.mil) \
+                          if FLAGS.model_name is None else FLAGS.model_name
         self.model_save_path = os.path.join(self.data_dir, "saved_models", self.model_name)
         self.step_save_path = os.path.join(self.model_save_path, "step")
         if not os.path.exists(self.model_save_path):
@@ -177,9 +180,6 @@ class Train:
             config.allow_soft_placement = True
             config.log_device_placement = False
             sess = tf.Session(config=config)
-            if self.flags.model == "cae_cnn":
-                self.model.data_handler.sess = sess
-                self.model.data_handler.model_save_path = os.path.join(self.data_dir, "saved_models", "cae")
             with tf.device('/gpu:' + str(self.gpu_index)):
                 # Note the global_step=batch parameter to minimize.
                 # That tells the optimizer to helpfully increment the 'batch' parameter for you every time it trains.
@@ -205,26 +205,37 @@ class Train:
 
             sess.run(init, {self.model.is_training: True})
 
+            if self.flags.model == "cae_cnn":
+                self.model.data_handler.sess = sess
+                self.model.data_handler.model_save_path = os.path.join(self.data_dir, "saved_models", "cae")
+                self.model.data_handler.restore()
+
             global_step_saver = tf.train.Saver(var_list=[step])
 
             if self.flags.load_model == "True":
                 self.model.restore(sess, self.model_save_path)
-                global_step_saver.restore(sess, os.path.join(self.step_save_path))
+                most_recent_step_ckpt = tf.train.latest_checkpoint(self.step_save_path)
+                global_step_saver.restore(sess, os.path.join(most_recent_step_ckpt))
+
+            if self.flags.model == "cae_cnn" and self.mil is not None and self.load_cnn:
+                self.model.restore(sess, os.path.join(self.data_dir, "saved_models", "cae_cnn"))
 
             ops = {'train_op': train_op, 'step': step}
 
             print "Initialization evaluation"
-            # self.eval_one_epoch(sess, ops, -1)
-            print "Instance level TRAINING eval"
-            full_model = self.model
-            self.model = self.model.model
-            self.eval_one_epoch(sess, ops, -1, use_training_data=True)
-            self.model = full_model
-            print "Instance level VALIDATION eval"
-            full_model = self.model
-            self.model = self.model.model
-            self.eval_one_epoch(sess, ops, -1, use_training_data=False)
-            self.model = full_model
+            if self.mil is None:
+                self.eval_one_epoch(sess, ops, -1)
+            else:
+                print "Instance level TRAINING eval"
+                full_model = self.model
+                self.model = self.model.model
+                self.eval_one_epoch(sess, ops, -1, use_training_data=True)
+                self.model = full_model
+                print "Instance level VALIDATION eval"
+                full_model = self.model
+                self.model = self.model.model
+                self.eval_one_epoch(sess, ops, -1, use_training_data=False)
+                self.model = full_model
 
             for epoch in range(self.max_epoch):
                 print '-' * 10 + ' Epoch: %03d ' % epoch + '-' * 10
@@ -233,9 +244,8 @@ class Train:
                 self.train_one_epoch(sess, ops, epoch)
 
                 # eval_ model
-                # self.eval_one_epoch(sess, ops, epoch)
-
-                # if mil, eval_ instance model
+                if self.mil is None:
+                    self.eval_one_epoch(sess, ops, -1)
                 if self.mil is not None:
                     print "Instance level TRAINING eval"
                     full_model = self.model
@@ -250,7 +260,7 @@ class Train:
 
 
                 # Save the variables to disk.
-                if epoch % 10 == 0:
+                if epoch % 3 == 0 and epoch != 0:
                     self.model.save(sess, self.model_save_path, global_step=step)
                     global_step_saver.save(sess, os.path.join(self.step_save_path, "step"), global_step=step)
 
@@ -340,6 +350,8 @@ def main():
                         help='True or False [default: False]')
     parser.add_argument('--model_name', default=None,
                         help='Name to save model to [default: model]')
+    parser.add_argument('--load_cnn', type=bool, default=True,
+                        help='Use pretrained cnn in mil [default: True (does nothing if no mil is used)]')
 
     flags = parser.parse_args()
 

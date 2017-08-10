@@ -3,17 +3,18 @@ import caveolae_cls.cnn.cnn_model as cnn
 from caveolae_cls.cae_cnn.cae_cnn_data_handler import CAE_CNN_DataHandler
 from caveolae_cls.data_handler import DataHandler as DH
 from caveolae_cls.model import Model
+import os
 
 
 class CAE_CNN(Model):
 
-    def __init__(self, input_data_type, use_softmax=True, use_mil=False):
+    def __init__(self, input_data_type, use_softmax=True, use_organized_data=False):
         super(CAE_CNN, self).__init__(hp_fn="cae_cnn/hyper_params.yaml")
         self.input_shape = [self.hp['BATCH_SIZE']] + DH.feature_shape  #
         if input_data_type == "multiview" or input_data_type == "projection":
             self.cae_input_shape = [self.hp['BATCH_SIZE'], DH.proj_dim, DH.proj_dim, 3]
         self.data_handler = CAE_CNN_DataHandler(input_data_type, self.cae_input_shape,
-                                                use_softmax=use_softmax, use_mil=use_mil)
+                                                use_softmax=use_softmax, use_organized_data=use_organized_data)
         self.is_training = None
         self.use_softmax = use_softmax
         self.cnn = cnn.CNN(input_data_type, use_softmax=use_softmax, own_data_handler=False)
@@ -34,15 +35,17 @@ class CAE_CNN(Model):
         """ pred: B*NUM_CLASSES,
             label: B, """
         # self.cae.generate_loss()
+        reg_variables = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
+        l2_reg = self.hp['BETA_REG'] * tf.nn.l2_loss(tf.add_n(reg_variables))
         if self.use_softmax:
             logistic_losses = tf.nn.softmax_cross_entropy_with_logits(logits=self.cnn.logits, labels=self.label_pl,
                                                                       name='sigmoid_xentropy')
-            self.loss = tf.reduce_mean(logistic_losses)
+            self.loss = tf.reduce_mean(logistic_losses + l2_reg)
         else:
             simple_loss = -(self.label_pl * tf.log(self.pred + 1e-12) +
                             (1.0 - self.label_pl) * tf.log(1.0 - self.pred + 1e-12))
             cross_entropy = tf.reduce_sum(simple_loss, reduction_indices=[1])
-            self.loss = tf.reduce_mean(cross_entropy)
+            self.loss = tf.reduce_mean(cross_entropy + l2_reg)
         self.val_loss = self.loss
 
     def get_batch(self, use='train', label=None):
@@ -52,4 +55,5 @@ class CAE_CNN(Model):
         self.cnn.save(sess, model_path, global_step=global_step)
 
     def restore(self, sess, model_path):
+        self.data_handler.restore()
         self.cnn.restore(sess, model_path)

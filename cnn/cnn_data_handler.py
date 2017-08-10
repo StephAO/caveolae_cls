@@ -7,12 +7,12 @@ from caveolae_cls.data_handler import DataHandler
 
 class CNNDataHandler(DataHandler):
 
-    def __init__(self, input_data_type, use_softmax=False, use_mil=False):
+    def __init__(self, input_data_type, use_softmax=False, use_organized_data=False):
         self.input_data_type = input_data_type
         if input_data_type == "multiview" or input_data_type == "projection":
             self.data_key = 'Img3Ch'
 
-        super(CNNDataHandler, self).__init__(use_softmax=use_softmax, use_mil=use_mil)
+        super(CNNDataHandler, self).__init__(use_softmax=use_softmax, use_organized_data=use_organized_data)
 
     def load_input_data(self, filename):
         """

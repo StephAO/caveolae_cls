@@ -8,9 +8,9 @@ from caveolae_cls.pointnet.pointnet_data_handler import PointNetDataHandler
 
 class PointNet(Model):
 
-    def __init__(self, use_softmax=True, use_mil=False):
+    def __init__(self, use_softmax=True, use_organized_data=False):
         super(PointNet, self).__init__(hp_fn="pointnet/hyper_params.yaml")
-        self.data_handler = PointNetDataHandler(use_softmax=use_softmax, use_mil=use_mil)
+        self.data_handler = PointNetDataHandler(use_softmax=use_softmax, use_organized_data=use_organized_data)
         self.end_points = None
         self.reg_weight = 0.001
         self.output_shape = []

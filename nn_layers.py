@@ -16,6 +16,7 @@ def weight_variable(name, shape, use_xavier=True, wd=None, stddev=1e-3):
     else:
         initializer = tf.truncated_normal_initializer(stddev=stddev)
     var = tf.get_variable(name, shape, initializer=initializer)
+    tf.add_to_collection(tf.GraphKeys.REGULARIZATION_LOSSES, var)
     return var
 
 

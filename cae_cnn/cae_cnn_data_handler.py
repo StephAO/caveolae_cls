@@ -12,12 +12,12 @@ import caveolae_cls.cae.cae_model as cae
 class CAE_CNN_DataHandler(DataHandler):
     # Instance = inst
     # TODO REMEMBER about filtering blobs with <60 points
-    def __init__(self, input_data_type, input_shape, use_softmax=True, use_mil=False):
+    def __init__(self, input_data_type, input_shape, use_softmax=True, use_organized_data=False):
         self.input_data_type = input_data_type
         if input_data_type == "multiview" or input_data_type == "projection":
             self.data_key = 'Img3Ch'
 
-        super(CAE_CNN_DataHandler, self).__init__(use_softmax=use_softmax, use_mil=use_mil)
+        super(CAE_CNN_DataHandler, self).__init__(use_softmax=use_softmax, use_organized_data=use_organized_data)
 
         # # TODO CHECK YOUR FUCKING DIFF and CHANGE "training" back to "validation"
         # self.p_eval_files_instance = DataHandler.get_data_filepaths(os.path.join(p_file_dir_val, "validation"))
@@ -38,14 +38,15 @@ class CAE_CNN_DataHandler(DataHandler):
         if self.features is None or self.replicator is None:
             self.cae.generate_model(self.cae_pl)
             # try:
-            self.cae.restore(self.sess, os.path.join(self.model_save_path))
+            self.features = self.cae.features
+            self.replicator = self.cae.pred
 
             # except:
             #     print "Unable to load CAE model"
             #     exit()
 
-            self.features = self.cae.features
-            self.replicator = self.cae.pred
+    def restore(self):
+        self.cae.restore(self.sess, os.path.join(self.model_save_path))
 
     def get_batch(self, batch_shape, use='train', label=None, exp_cell_token=None, verbose=True):
         """

@@ -2,6 +2,7 @@ import numpy as np
 import os
 import scipy.io as sio
 import shutil
+from sklearn.decomposition import PCA
 import sys
 
 from caveolae_cls.data_handler import DataHandler
@@ -56,8 +57,12 @@ def blob_to_projections(blob):
     proj_dim = int(DataHandler.proj_dim)
     proj = np.zeros([proj_dim, proj_dim, 3])
 
+    pca = PCA(n_components=3)
+
+    normalized_blob = 128. * (pca.fit_transform(blob) / np.std(blob))
+
     center = proj_dim / 2.
-    coords = np.rint(center + blob - np.mean(blob, axis=0))
+    coords = np.rint(center + normalized_blob)
 
     num_excluded_points = 0
 

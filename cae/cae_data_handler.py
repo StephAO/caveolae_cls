@@ -9,10 +9,10 @@ from caveolae_cls.data_handler import DataHandler
 
 class CAEDataHandler(DataHandler):
 
-    def __init__(self, input_data_type, use_mil=False):
+    def __init__(self, input_data_type, use_organized_data=True):
         if input_data_type == "multiview" or input_data_type == "projection":
             self.data_key = 'Img3Ch'
-        super(CAEDataHandler, self).__init__(use_mil=use_mil)
+        super(CAEDataHandler, self).__init__(use_organized_data=use_organized_data)
 
     def load_input_data(self, filename, softmax=True):
         """
@@ -39,7 +39,7 @@ class CAEDataHandler(DataHandler):
         self.batch_size = batch_shape[0]
         self.input = np.zeros(batch_shape)
 
-        files = self.get_data_files(use=use, label=label, exp_cell_token=exp_cell_token)
+        files = self.get_data_files(use=use, label=label, exp_cell_token=exp_cell_token, get_all=True)
 
         random_file_idxs = np.arange(len(files))
         np.random.shuffle(random_file_idxs)

@@ -29,19 +29,20 @@ class DataHandler:
     proj_dim = 512
     feature_shape = [32, 32, 32]
 
-    def __init__(self, use_softmax=False, use_mil=False):
+    def __init__(self, use_softmax=False, use_organized_data=False):
         self.batch_size = None
         self.data = None
         self.labels = None
         self.use_softmax = use_softmax
-        self.use_mil = use_mil
+        self.use_organized_data = use_organized_data
 
-        if use_mil:
+        if use_organized_data:
             self.bag = {}
             self.inst = {}
             directories = ['/home/stephane/sfu_data/DL_Exp1', '/home/stephane/sfu_data/DL_Exp2',
                            '/home/stephane/sfu_data/DL_Exp3', '/home/stephane/sfu_data/DL_Exp4']
             self.sort_data_files(directories)
+            self.shuffle_inst_files()
         else:
             # p_file_dir = '/staff/2/sarocaou/data/projection_positive'
             # n_file_dir = '/staff/2/sarocaou/data/projection_negative'
@@ -60,7 +61,7 @@ class DataHandler:
             self.test_files = p_test_files + n_test_files
 
 
-    def fill_data_dict(self, sub_dir, exp_num, label, val_cells, include_synthetics=True):
+    def fill_data_dict(self, sub_dir, exp_num, label, val_cells, include_synthetics=True, exclude_PC3PTRF_neg=True):
         """
         Fills data dictionary for use later
         :param sub_dir: Directory containing only data files (lowest level directory)
@@ -83,7 +84,9 @@ class DataHandler:
 
                 recursive_dict_filler(self.bag, [use, label, 100 * exp_num + cell_num], os.path.join(sub_dir, f))
                 filename_label = DataHandler.get_label_from_filename(f)
-                if exp_num == 4:
+                if exclude_PC3PTRF_neg and filename_label == 0 and sub_dir.split('_')[-1] == "PC3PTRF":
+                    continue
+                elif exp_num == 4:
                     recursive_dict_filler(self.inst, [use, filename_label], os.path.join(sub_dir, f))
 
 
@@ -104,24 +107,32 @@ class DataHandler:
         val_cells = np.random.randint(2, 10, size=4)
         for d in directories:
             exp_num = int(d.split('/')[-1].split('_')[1][-1])
-            pos_sub_dir = os.path.join(d, "Projs_Exp" + str(exp_num) + "_MAT_PC3PTRF")
-            neg_sub_dir = os.path.join(d, "Projs_Exp" + str(exp_num) + "_MAT_PC3")
+            pos_sub_dir = os.path.join(d, "Projs_Exp" + str(exp_num) + "_MAT_PCA_PC3PTRF")
+            neg_sub_dir = os.path.join(d, "Projs_Exp" + str(exp_num) + "_MAT_PCA_PC3")
+            # pos_sub_dir = os.path.join(d, "Projs_Exp" + str(exp_num) + "_MAT_PC3PTRF")
+            # neg_sub_dir = os.path.join(d, "Projs_Exp" + str(exp_num) + "_MAT_PC3")
             self.fill_data_dict(pos_sub_dir, exp_num, 'pos', val_cells)
             self.fill_data_dict(neg_sub_dir, exp_num, 'neg', val_cells)
 
 
-    def get_data_files(self, use, label=None, exp_cell_token=None):
+    def get_data_files(self, use, label=None, exp_cell_token=None, get_all=False):
         """
         Return requested data files.
         WARNING: returned file list is in a mutable (not copying for performance reasons)
         :param use: What the data files will be used for ('train', 'val', or 'test')
         :param label: Only used for mil. 'pos' or 'neg' will return the positive/negative cell
                       associated with exp_cell_token. If None, return instances.
-        :param exp_cell_token: Only used if use_mil if False and label is not None. Identifies specific cell to return.
+        :param exp_cell_token: Only used if use_organized_data if False and label is not None. Identifies specific cell to return.
+        :param get_all: Returns all files for that use
         :return: requested data files
         """
-        if self.use_mil:
-            if label is None:
+        if self.use_organized_data:
+            if get_all:
+                files = []
+                for l in self.bag[use]:
+                    for token in self.bag[use][l]:
+                        files += self.bag[use][l][token]
+            elif label is None:
                 files = self.inst[use][1] + self.inst[use][0][:len(self.inst[use][1])]
             else:
                 files = self.bag[use][label][exp_cell_token]
@@ -134,6 +145,11 @@ class DataHandler:
                 files = self.p_test_files
 
         return files
+
+    def shuffle_inst_files(self):
+        for use in self.inst:
+            for l in self.inst[use]:
+                np.random.shuffle(self.inst[use][l])
 
     @staticmethod
     def get_data_filepaths(directory, include_synthetics=True):

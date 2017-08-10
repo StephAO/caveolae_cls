@@ -9,7 +9,7 @@ from caveolae_cls.cae.cae_data_handler import CAEDataHandler
 
 class CAE(Model):
 
-    def __init__(self, input_data_type, own_data_handler=True, use_mil=False):
+    def __init__(self, input_data_type, own_data_handler=True, use_organized_data=False):
         super(CAE, self).__init__(hp_fn="cae/hyper_params.yaml")
         if own_data_handler:
             self.data_handler = CAEDataHandler(input_data_type)
