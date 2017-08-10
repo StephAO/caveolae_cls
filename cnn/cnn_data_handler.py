@@ -4,15 +4,14 @@ import sys
 
 from caveolae_cls.data_handler import DataHandler
 
-
 class CNNDataHandler(DataHandler):
 
-    def __init__(self, input_data_type, use_softmax=False, use_organized_data=False):
+    def __init__(self, input_data_type, use_softmax=False):
         self.input_data_type = input_data_type
         if input_data_type == "multiview" or input_data_type == "projection":
             self.data_key = 'Img3Ch'
 
-        super(CNNDataHandler, self).__init__(use_softmax=use_softmax, use_organized_data=use_organized_data)
+        super(CNNDataHandler, self).__init__(use_softmax=use_softmax)
 
     def load_input_data(self, filename):
         """
@@ -27,7 +26,7 @@ class CNNDataHandler(DataHandler):
             label = l
         return data, label
 
-    def get_batch(self, batch_shape, use='train', label=None, exp_cell_token=None, verbose=True):
+    def get_batch(self, batch_shape, use='train', val_set=None, verbose=True):
         """
         Generator that will return batches
         :param files: List of data file names. Each file should contain a 1 element.
@@ -40,7 +39,7 @@ class CNNDataHandler(DataHandler):
         self.data = np.zeros(batch_shape)
         self.labels = np.zeros([self.batch_size, 2] if self.use_softmax else self.batch_size)
 
-        files = self.get_data_files(use=use, label=label, exp_cell_token=exp_cell_token)
+        files = self.get_data_files(use=use, val_set=val_set)
         
         print "Using %d files" % len(files)
 

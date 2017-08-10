@@ -22,17 +22,17 @@ class Train:
         self.flags = FLAGS
         # Select model
         if FLAGS.model == "pointnet":
-            self.model = pn.PointNet(use_organized_data=(FLAGS.mil is not None))
+            self.model = pn.PointNet()
             FLAGS.input_type = "pointcloud"
             self.classification = True
         elif FLAGS.model == "cnn":
-            self.model = cnn.CNN(FLAGS.input_type, use_organized_data=True)
+            self.model = cnn.CNN(FLAGS.input_type)
             self.classification = True
         elif FLAGS.model == "cae":
-            self.model = cae.CAE(FLAGS.input_type, use_organized_data=True)
+            self.model = cae.CAE(FLAGS.input_type)
             self.classification = False
         elif FLAGS.model == "cae_cnn":
-            self.model = cae_cnn.CAE_CNN(FLAGS.input_type, use_organized_data=True)
+            self.model = cae_cnn.CAE_CNN(FLAGS.input_type)
             self.classification = True
         else:
             raise NotImplementedError("%s is not an implemented model" % FLAGS.model)
@@ -222,55 +222,52 @@ class Train:
 
             ops = {'train_op': train_op, 'step': step}
 
-            print "Initialization evaluation"
-            if self.mil is None:
-                self.eval_one_epoch(sess, ops, -1)
-            else:
-                print "Instance level TRAINING eval"
-                full_model = self.model
-                self.model = self.model.model
-                self.eval_one_epoch(sess, ops, -1, use_training_data=True)
-                self.model = full_model
-                print "Instance level VALIDATION eval"
-                full_model = self.model
-                self.model = self.model.model
-                self.eval_one_epoch(sess, ops, -1, use_training_data=False)
-                self.model = full_model
+            # print "Initialization evaluation"
+            # self.eval_one_epoch(sess, ops, -1)
+            cross_val_results = np.zeros([3])
+            biological_results = np.zeros([2])
 
-            for epoch in range(self.max_epoch):
-                print '-' * 10 + ' Epoch: %03d ' % epoch + '-' * 10
-                sys.stdout.flush()
+            for val_set in xrange(self.model.data_handler.num_groups):
+                val_metrics = np.zeros([self.max_epoch, 3])
+                for epoch in range(self.max_epoch):
+                    print '-' * 10 + ' Epoch: %02d ' % epoch + '-' * 10
 
-                self.train_one_epoch(sess, ops, epoch)
+                    self.train_one_epoch(sess, ops, epoch, val_set)
+                    val_metrics[epoch] = self.eval_one_epoch(sess, ops, epoch, val_set)
+                    # If accuracy has gotten worse each of the last 3 epochs, exit
+                    if epoch >= 3 and \
+                       val_metrics[epoch][0] < val_metrics[epoch - 1][0] and \
+                       val_metrics[epoch - 1][0] < val_metrics[epoch - 2][0] and \
+                       val_metrics[epoch - 2][0] < val_metrics[epoch - 3][0]:
+                        break
 
-                # eval_ model
-                if self.mil is None:
-                    self.eval_one_epoch(sess, ops, -1)
-                if self.mil is not None:
-                    print "Instance level TRAINING eval"
-                    full_model = self.model
-                    self.model = self.model.model
-                    self.eval_one_epoch(sess, ops, epoch, use_training_data=True)
-                    self.model = full_model
-                    print "Instance level VALIDATION eval"
-                    full_model = self.model
-                    self.model = self.model.model
-                    self.eval_one_epoch(sess, ops, epoch, use_training_data=False)
-                    self.model = full_model
+                    # Save the variables to disk.
+                    if epoch % 10 == 0 and epoch != 0:
+                        self.model.save(sess, self.model_save_path, global_step=step)
+                        global_step_saver.save(sess, os.path.join(self.step_save_path, "step"), global_step=step)
+
+                cross_val_results += val_metrics[np.argmax(val_metrics[:,0], axis=0)]
+                biological_results += self.test_biology(sess, ops, epoch)
+
+            cross_val_results /= float(self.model.data_handler.num_groups)
+            biological_results /= float(self.model.data_handler.num_groups)
+            print "-" * 25
+            print "----- FINAL RESULTS -----"
+            print "Accuracy: %f" % cross_val_results[0]
+            print "Sensitivity: %f" % cross_val_results[1]
+            print "Specificity: %f" % cross_val_results[2]
+            print "Ratio of positive in PC3: %f" % biological_results[0]
+            print "Ratio of positives in PC3PTRF %f"  % biological_results[1]
 
 
-                # Save the variables to disk.
-                if epoch % 3 == 0 and epoch != 0:
-                    self.model.save(sess, self.model_save_path, global_step=step)
-                    global_step_saver.save(sess, os.path.join(self.step_save_path, "step"), global_step=step)
 
         pickle.dump([vars(self.flags), self.model.hp, self.metrics], open(self.data_fn, "wb"))
 
-    def train_one_epoch(self, sess, ops, epoch):
+    def train_one_epoch(self, sess, ops, epoch, val_set):
         """ ops: dict mapping from string to tf ops """
         is_training = True
         # Shuffle train files
-        for data, labels in self.model.get_batch():
+        for data, labels in self.model.get_batch(use='train', val_set=val_set):
             feed_dict = {self.model.input_pl: data,
                          self.model.is_training: is_training}
             if self.classification:
@@ -291,28 +288,18 @@ class Train:
 
         loss, accuracy, precision, sensitivity, specificity, f1, _ = self.calculate_metrics()
         self.update_metrics(loss, accuracy, precision, sensitivity, specificity, f1, training=True)
+        return np.array([accuracy, sensitivity, specificity])
 
-    def eval_one_epoch(self, sess, ops, epoch, use_training_data=False):
+    def eval_one_epoch(self, sess, ops, epoch, val_set):
         """ ops: dict mapping from string to tf ops """
         is_training = False
 
-        ### REMOVE ### TODO
-        # n = 0
-        # cae_plotting_data = {}
-        ##############
-        use = 'train' if use_training_data else 'val'
-        for data, labels in self.model.get_batch(use=use):
+        for data, labels in self.model.get_batch(use='val', val_set=val_set):
             feed_dict = {self.model.input_pl: data,
                          self.model.is_training: is_training}
             if self.classification:
                 feed_dict[self.model.label_pl] = labels
-            step, loss, val_loss, pred_val = sess.run([ops['step'], self.model.loss, self.model.val_loss, self.model.pred], feed_dict=feed_dict)
-
-            ### REMOVE ### TODO
-            # if n % 10 == 0:
-            #     cae_plotting_data[n] = (data[0], pred_val[0])
-            # n += 1
-            ##############
+            loss, val_loss, pred_val = sess.run([self.model.loss, self.model.val_loss, self.model.pred], feed_dict=feed_dict)
 
             if self.model.use_softmax:
                 # print pred_val
@@ -326,12 +313,38 @@ class Train:
 
         loss, accuracy, precision, sensitivity, specificity, f1,  val_loss = self.calculate_metrics()
         self.update_metrics(loss, accuracy, precision, sensitivity, specificity, f1, val_loss=val_loss, training=False)
+        return np.array([accuracy, sensitivity, specificity])
 
-        ### REMOVE ### TODO
-        # filename = os.path.join(self.data_dir, str(epoch) + ".p")
-        # with open(filename, "wb") as f:
-        #     pickle.dump(cae_plotting_data, f)
-        ##############
+    def test_biology(self, sess, ops, epoch):
+        is_training = False
+
+        ratio_of_positives = np.zeros([2])
+
+        for i, cell_type in enumerate(['PC3', 'PTRF']):
+            num_pos = 0
+            num_tot = 0
+            for data, labels in self.model.get_batch(use='test', cell_type=cell_type):
+                feed_dict = {self.model.input_pl: data,
+                             self.model.is_training: is_training}
+                if self.classification:
+                    feed_dict[self.model.label_pl] = labels
+                loss, val_loss, pred_val = sess.run(
+                    [ops['step'], self.model.loss, self.model.val_loss, self.model.pred], feed_dict=feed_dict)
+
+                if self.model.use_softmax:
+                    # print pred_val
+                    pred_val = np.argmax(pred_val, axis=1)
+                    labels = np.argmax(labels, axis=1)
+                else:
+                    np.rint(pred_val)
+                pred_val = pred_val.flatten()
+                # calculate metrics
+                num_pos += np.count_nonzero(pred_val)
+                num_tot += len(pred_val)
+            print "Ratio of positives in %s cells: %f" % (cell_type, float(num_pos) / float(num_tot))
+            ratio_of_positives[i] = float(num_pos) / float(num_tot)
+
+        return ratio_of_positives
 
 
 def main():
