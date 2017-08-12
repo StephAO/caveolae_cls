@@ -22,7 +22,7 @@ class PointNet(Model):
         self.label_pl = tf.placeholder(tf.float32, shape=[self.hp['BATCH_SIZE'], 2] if self.use_softmax else self.hp['BATCH_SIZE'])
         self.is_training = tf.placeholder(tf.bool, shape=())
 
-    def generate_global_features(self, input_pl=None, bn_decay=None, num_feats=4096):
+    def generate_global_features(self, input_pl=None, bn_decay=None, num_feats=1024):
         input_pl = self.input_pl if input_pl is None else input_pl
 
         batch_size = self.hp['BATCH_SIZE']
@@ -56,19 +56,19 @@ class PointNet(Model):
 
         input_channels = net_transformed.get_shape()[-1].value
 
-        conv3 = nn_layers.conv2d(net_transformed, input_channels, 64, [1, 1],
+        conv3 = nn_layers.conv2d(net_transformed, input_channels, 128, [1, 1],
                                  padding='VALID', stride=[1, 1],
                                  batch_norm=True, is_training=self.is_training,
                                  layer_name='conv3', batch_norm_decay=bn_decay)
-        conv4 = nn_layers.conv2d(conv3, 64, 256, [1, 1],
+        conv4 = nn_layers.conv2d(conv3, 128, 256, [1, 1],
                                  padding='VALID', stride=[1, 1],
                                  batch_norm=True, is_training=self.is_training,
                                  layer_name='conv4', batch_norm_decay=bn_decay)
-        conv5 = nn_layers.conv2d(conv4, 256, 1024, [1, 1],
+        conv5 = nn_layers.conv2d(conv4, 256, 512, [1, 1],
                                  padding='VALID', stride=[1, 1],
                                  batch_norm=True, is_training=self.is_training,
                                  layer_name='conv5', batch_norm_decay=bn_decay)
-        conv6 = nn_layers.conv2d(conv5, 1024, num_feats, [1, 1],
+        conv6 = nn_layers.conv2d(conv5, 512, num_feats, [1, 1],
                                  padding='VALID', stride=[1, 1],
                                  batch_norm=True, is_training=self.is_training,
                                  layer_name='conv6', batch_norm_decay=bn_decay)
@@ -93,12 +93,12 @@ class PointNet(Model):
 
             input_channels = gf.get_shape()[-1].value
 
-            fc1 = nn_layers.fc(gf, input_channels, 1024, batch_norm=True,
+            fc1 = nn_layers.fc(gf, input_channels, 512, batch_norm=True,
                                is_training=self.is_training, layer_name='fc1',
                                batch_norm_decay=bn_decay)
             # dp1 = nn_layers.dropout(fc1, keep_prob=0.7, is_training=is_training,
             #                         layer_name='dp1')
-            fc2 = nn_layers.fc(fc1, 1024, 256, batch_norm=True, is_training=self.is_training,
+            fc2 = nn_layers.fc(fc1, 512, 256, batch_norm=True, is_training=self.is_training,
                                layer_name='fc2', batch_norm_decay=bn_decay)
             # dp2 = nn_layers.dropout(fc2, keep_prob=0.7, is_training=is_training,
             #                         layer_name='dp2')
