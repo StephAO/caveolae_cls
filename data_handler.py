@@ -89,7 +89,7 @@ class DataHandler:
             self.fill_data_dict(neg_sub_dir, exp_num, 'neg')
 
 
-    def get_data_files(self, use, val_set=None):
+    def get_data_files(self, use, val_set=None, cell_type=None):
         """
         Return requested data files.
         WARNING: returned file list is in a mutable (not copying for performance reasons)
@@ -97,8 +97,24 @@ class DataHandler:
         :param val_set: Training data group being used for validation in current round of cross validation
         :return: requested data files
         """
-        if use == 'test:':
-            files = self.inst[use][1] + self.inst[use][0][:len(self.inst[use][1])]
+        print cell_type
+        if use == 'test':
+            if cell_type is None:
+                files = self.inst[use][1] + self.inst[use][0][:len(self.inst[use][1])]
+            elif cell_type == 'PC3':
+                files = self.inst[use][0][:len(self.inst[use][1])]
+            elif cell_type == 'PC3PTRF':
+                files = self.inst[use][1]
+            else:
+                raise TypeError("%s is an unknown cell type" % (cell_type))
+        # elif use == 'val':
+        #     p_files = DataHandler.get_data_filepaths(os.path.join('/home/stephane/sfu_data/projection_positive', "validation"))
+        #     n_files = DataHandler.get_data_filepaths(os.path.join('/home/stephane/sfu_data/projection_negative', "validation"))[:len(p_files)]
+        #     files = p_files + n_files
+        # elif use == 'train':
+        #     p_files = DataHandler.get_data_filepaths(os.path.join('/home/stephane/sfu_data/projection_positive', "training"))
+        #     n_files = DataHandler.get_data_filepaths(os.path.join('/home/stephane/sfu_data/projection_negative', "training"))[:len(p_files)]
+        #     files = p_files + n_files
         else:
             files = []
             for i in xrange(self.num_groups):
@@ -110,12 +126,18 @@ class DataHandler:
 
     def shuffle_inst_files(self):
         for use in self.inst:
+            pos_count = 0
+            neg_count = 0
             for i in self.inst[use]:
                 if use == 'train':
                     for j in self.inst[use][i]:
+                        pos_count += 0 if j == 0 else len(self.inst[use][i][j])
+                        neg_count += 0 if j == 1 else len(self.inst[use][i][j])
                         np.random.shuffle(self.inst[use][i][j])
                 else:
                     np.random.shuffle(self.inst[use][i])
+            print pos_count
+            print neg_count
 
     @staticmethod
     def get_data_filepaths(directory, include_synthetics=True):

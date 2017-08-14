@@ -230,7 +230,7 @@ class Train:
             for val_set in xrange(self.model.data_handler.num_groups):
                 val_metrics = np.zeros([self.max_epoch, 3])
                 for epoch in range(self.max_epoch):
-                    print '-' * 10 + ' Epoch: %02d ' % epoch + '-' * 10
+                    print '-' * 10 + 'Validation Set: %02d Epoch: %02d ' % (val_set + 1, epoch + 1) + '-' * 10
 
                     self.train_one_epoch(sess, ops, epoch, val_set)
                     val_metrics[epoch] = self.eval_one_epoch(sess, ops, epoch, val_set)
@@ -258,8 +258,6 @@ class Train:
             print "Specificity: %f" % cross_val_results[2]
             print "Ratio of positive in PC3: %f" % biological_results[0]
             print "Ratio of positives in PC3PTRF %f"  % biological_results[1]
-
-
 
         pickle.dump([vars(self.flags), self.model.hp, self.metrics], open(self.data_fn, "wb"))
 
@@ -320,7 +318,7 @@ class Train:
 
         ratio_of_positives = np.zeros([2])
 
-        for i, cell_type in enumerate(['PC3', 'PTRF']):
+        for i, cell_type in enumerate(['PC3', 'PC3PTRF']):
             num_pos = 0
             num_tot = 0
             for data, labels in self.model.get_batch(use='test', cell_type=cell_type):
@@ -328,8 +326,7 @@ class Train:
                              self.model.is_training: is_training}
                 if self.classification:
                     feed_dict[self.model.label_pl] = labels
-                loss, val_loss, pred_val = sess.run(
-                    [ops['step'], self.model.loss, self.model.val_loss, self.model.pred], feed_dict=feed_dict)
+                pred_val = sess.run(self.model.pred, feed_dict=feed_dict)
 
                 if self.model.use_softmax:
                     # print pred_val

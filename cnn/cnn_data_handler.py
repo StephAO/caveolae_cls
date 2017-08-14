@@ -26,7 +26,7 @@ class CNNDataHandler(DataHandler):
             label = l
         return data, label
 
-    def get_batch(self, batch_shape, use='train', val_set=None, verbose=True):
+    def get_batch(self, batch_shape, use='train', val_set=None, verbose=True, cell_type=None):
         """
         Generator that will return batches
         :param files: List of data file names. Each file should contain a 1 element.
@@ -39,7 +39,7 @@ class CNNDataHandler(DataHandler):
         self.data = np.zeros(batch_shape)
         self.labels = np.zeros([self.batch_size, 2] if self.use_softmax else self.batch_size)
 
-        files = self.get_data_files(use=use, val_set=val_set)
+        files = self.get_data_files(use=use, val_set=val_set, cell_type=cell_type)
         
         print "Using %d files" % len(files)
 

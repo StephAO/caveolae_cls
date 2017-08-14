@@ -98,5 +98,5 @@ class CNN(Model):
             self.loss = tf.reduce_mean(cross_entropy + l2_reg)
         self.val_loss = self.loss
 
-    def get_batch(self, use='train', val_set=None):
-        return self.data_handler.get_batch(self.input_shape, use=use, val_set=val_set)
+    def get_batch(self, use='train', val_set=None, cell_type=None):
+        return self.data_handler.get_batch(self.input_shape, use=use, val_set=val_set, cell_type=cell_type)

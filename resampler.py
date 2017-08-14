@@ -41,9 +41,9 @@ def convert(files, target_dir):
     for f in files:
         data = sio.loadmat(f)
         blob = data["blob"]
-        if len(data["blob"]) < 60:
-            num_skipped += 1
-            continue
+        # if len(data["blob"]) < 60:
+        #     num_skipped += 1
+        #     continue
         proj = blob_to_projections(blob)
         data["Img3Ch"] = proj
         del data["blob"]
@@ -57,12 +57,12 @@ def blob_to_projections(blob):
     proj_dim = int(DataHandler.proj_dim)
     proj = np.zeros([proj_dim, proj_dim, 3])
 
-    pca = PCA(n_components=3)
+    # pca = PCA(n_components=3)
 
-    normalized_blob = 128. * (pca.fit_transform(blob) / np.std(blob))
+    # normalized_blob = 128. * (pca.fit_transform(blob) / np.std(blob))
 
     center = proj_dim / 2.
-    coords = np.rint(center + normalized_blob)
+    coords = np.rint(center + blob - np.mean(blob, axis=0))
 
     num_excluded_points = 0
 
