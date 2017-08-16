@@ -7,8 +7,8 @@ from caveolae_cls.data_handler import DataHandler
 
 class PointNetDataHandler(DataHandler):
 
-    def __init__(self, use_softmax=False):
-        super(PointNetDataHandler, self).__init__(use_softmax=use_softmax)
+    def __init__(self, use_softmax=True):
+        super(PointNetDataHandler, self).__init__('Blobs', use_softmax=use_softmax)
 
     def load_point_cloud(self, filename):
         """
@@ -80,7 +80,7 @@ class PointNetDataHandler(DataHandler):
             rotated_data[k, ...] = np.dot(shape_pc.reshape((-1, 3)), rotation_matrix)
         return rotated_data
 
-    def get_batch(self, batch_shape, use='train', label=None, exp_cell_token=None, verbose=True):
+    def get_batch(self, batch_shape, use='train', val_set=None, cell_type=None, verbose=True):
         """
         Generator that will return batches
         :param files: List of data file names. Each file should contain a 1 element.
@@ -94,7 +94,7 @@ class PointNetDataHandler(DataHandler):
         self.data = np.zeros(batch_shape)
         self.labels = np.zeros([self.batch_size, 2] if self.use_softmax else self.batch_size)
 
-        files = self.get_data_files(use=use, label=label, exp_cell_token=exp_cell_token)
+        files = self.get_data_files(use=use, val_set=val_set, cell_type=cell_type)
 
         random_file_idxs = np.arange(len(files))
         np.random.shuffle(random_file_idxs)
@@ -118,8 +118,8 @@ class PointNetDataHandler(DataHandler):
             i += 1
             if i >= self.batch_size:
                 # Augment batched point clouds by rotation and jittering
-                self.data = PointNetDataHandler.rotate_point_cloud(self.data)
-                self.data = PointNetDataHandler.jitter_point_cloud(self.data)
+                # self.data = PointNetDataHandler.rotate_point_cloud(self.data)
+                # self.data = PointNetDataHandler.jitter_point_cloud(self.data)
                 # Yield batch
                 yield self.data, self.labels
                 i = 0

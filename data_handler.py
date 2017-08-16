@@ -29,7 +29,7 @@ class DataHandler:
     proj_dim = 512
     feature_shape = [32, 32, 32]
 
-    def __init__(self, use_softmax=False):
+    def __init__(self, input_type, use_softmax=True):
         self.batch_size = None
         self.data = None
         self.labels = None
@@ -37,13 +37,15 @@ class DataHandler:
 
         self.train_group = 0
         self.num_groups = 10
+        self.input_type = input_type
         self.inst = {}
         directories = ['/home/stephane/sfu_data/DL_Exp1', '/home/stephane/sfu_data/DL_Exp2',
                        '/home/stephane/sfu_data/DL_Exp3', '/home/stephane/sfu_data/DL_Exp4']
         self.sort_data_files(directories)
         self.shuffle_inst_files()
 
-    def fill_data_dict(self, sub_dir, exp_num, include_synthetics=True, exclude_PC3PTRF_neg=True):
+
+    def fill_data_dict(self, sub_dir, exp_num, bag_label, include_synthetics=False, exclude_PC3PTRF_neg=True):
         """
         Fills data dictionary for use later
         :param sub_dir: Directory containing only data files (lowest level directory)
@@ -57,13 +59,15 @@ class DataHandler:
             if (os.path.isfile(os.path.join(sub_dir, f)) and
                     (include_synthetics or f.split('_')[0] != 'synthetic')):
                 filename_label = DataHandler.get_label_from_filename(f)
-                if exclude_PC3PTRF_neg and filename_label == 0 and sub_dir.split('_')[-1] == "PC3PTRF":
+                if exp_num != 4:
+                    recursive_dict_filler(self.inst, ['test', filename_label], os.path.join(sub_dir, f))
+                elif exclude_PC3PTRF_neg and filename_label == 0 and sub_dir.split('_')[-1] == "PC3PTRF":
                     continue
-                elif exp_num == 4:
+                elif not exclude_PC3PTRF_neg and sub_dir.split('_')[-1] == "PC3":
+                    continue
+                else:
                     recursive_dict_filler(self.inst, ['train', self.train_group, filename_label], os.path.join(sub_dir, f))
                     self.train_group = (self.train_group + 1) % self.num_groups
-                else:
-                    recursive_dict_filler(self.inst, ['test', filename_label], os.path.join(sub_dir, f))
 
     def sort_data_files(self, directories):
         """
@@ -81,30 +85,27 @@ class DataHandler:
         """
         for d in directories:
             exp_num = int(d.split('/')[-1].split('_')[1][-1])
-            # pos_sub_dir = os.path.join(d, "Projs_Exp" + str(exp_num) + "_MAT_PCA_PC3PTRF")
-            # neg_sub_dir = os.path.join(d, "Projs_Exp" + str(exp_num) + "_MAT_PCA_PC3")
-            pos_sub_dir = os.path.join(d, "Projs_Exp" + str(exp_num) + "_MAT_PC3PTRF")
-            neg_sub_dir = os.path.join(d, "Projs_Exp" + str(exp_num) + "_MAT_PC3")
-            self.fill_data_dict(pos_sub_dir, exp_num, 'pos')
-            self.fill_data_dict(neg_sub_dir, exp_num, 'neg')
+            pos_sub_dir = os.path.join(d, self.input_type + "_Exp" + str(exp_num) + "_MAT_PC3PTRF")
+            neg_sub_dir = os.path.join(d, self.input_type + "_Exp" + str(exp_num) + "_MAT_PC3")
+            self.fill_data_dict(pos_sub_dir, exp_num, 1)
+            self.fill_data_dict(neg_sub_dir, exp_num, 0)
 
 
     def get_data_files(self, use, val_set=None, cell_type=None):
         """
         Return requested data files.
-        WARNING: returned file list is in a mutable (not copying for performance reasons)
+        WARNING: returned file list is in a mutable (does not copy for performance reasons)
         :param use: What the data files will be used for ('train', 'val', or 'test')
         :param val_set: Training data group being used for validation in current round of cross validation
         :return: requested data files
         """
-        print cell_type
         if use == 'test':
             if cell_type is None:
                 files = self.inst[use][1] + self.inst[use][0][:len(self.inst[use][1])]
             elif cell_type == 'PC3':
-                files = self.inst[use][0][:len(self.inst[use][1])]
+                files = self.inst[use][0][:10000]
             elif cell_type == 'PC3PTRF':
-                files = self.inst[use][1]
+                files = self.inst[use][1][:10000]
             else:
                 raise TypeError("%s is an unknown cell type" % (cell_type))
         # elif use == 'val':
@@ -122,6 +123,8 @@ class DataHandler:
                     files += self.inst['train'][i][1] + self.inst['train'][i][0][:len(self.inst['train'][i][1])]
                 elif i != val_set and use == 'train':
                     files += self.inst['train'][i][1] + self.inst['train'][i][0][:len(self.inst['train'][i][1])]
+
+        print "Using %d files" % len(files)
         return files
 
     def shuffle_inst_files(self):
@@ -156,8 +159,8 @@ class DataHandler:
         label = filename.split("/")[-1].split("_")[-1].strip(".mat").strip(" ")
         return 0 if label == 'N' else 1
 
-    @abstractmethod
-    def get_batch(self, batch_shape, use='train', label=None):
-        pass
+    # @abstractmethod
+    # def get_batch(self, batch_shape, use='train', label=None):
+    #     pass
 
 

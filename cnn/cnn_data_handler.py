@@ -10,8 +10,7 @@ class CNNDataHandler(DataHandler):
         self.input_data_type = input_data_type
         if input_data_type == "multiview" or input_data_type == "projection":
             self.data_key = 'Img3Ch'
-
-        super(CNNDataHandler, self).__init__(use_softmax=use_softmax)
+        super(CNNDataHandler, self).__init__('Projs', use_softmax=use_softmax)
 
     def load_input_data(self, filename):
         """
@@ -19,6 +18,8 @@ class CNNDataHandler(DataHandler):
         """
         f = sio.loadmat(filename)
         data = f[self.data_key][:]
+        # if np.count_nonzero(data) < 60:
+        #     return None, None
         label = DataHandler.get_label_from_filename(filename)
         if self.use_softmax:
             l = np.zeros([2])
@@ -26,7 +27,7 @@ class CNNDataHandler(DataHandler):
             label = l
         return data, label
 
-    def get_batch(self, batch_shape, use='train', val_set=None, verbose=True, cell_type=None):
+    def get_batch(self, batch_shape, use='train', val_set=None, cell_type=None, verbose=True,):
         """
         Generator that will return batches
         :param files: List of data file names. Each file should contain a 1 element.
@@ -40,9 +41,6 @@ class CNNDataHandler(DataHandler):
         self.labels = np.zeros([self.batch_size, 2] if self.use_softmax else self.batch_size)
 
         files = self.get_data_files(use=use, val_set=val_set, cell_type=cell_type)
-        
-        print "Using %d files" % len(files)
-
         random_file_idxs = np.arange(len(files))
         np.random.shuffle(random_file_idxs)
 
