@@ -13,11 +13,12 @@ class CNN(Model):
         if input_data_type == "multiview" or input_data_type == "projection":
             self.input_shape = [self.hp['BATCH_SIZE'], DH.proj_dim, DH.proj_dim, 3]
         self.is_training = None
+        self.num_classes = 2
         self.use_softmax = use_softmax
 
     def generate_input_placeholders(self):
         self.input_pl = tf.placeholder(tf.float32, shape=(self.input_shape))
-        self.label_pl = tf.placeholder(tf.float32, shape=[self.hp['BATCH_SIZE'], 2] if self.use_softmax else self.hp['BATCH_SIZE'])
+        self.label_pl = tf.placeholder(tf.float32, shape=[self.hp['BATCH_SIZE'], self.num_classes] if self.use_softmax else self.hp['BATCH_SIZE'])
         self.is_training = tf.placeholder(tf.bool, shape=())
 
     def generate_model(self, input_pl=None, bn_decay=None, reuse=None):
@@ -27,24 +28,24 @@ class CNN(Model):
             input_channels = input_pl.get_shape()[-1].value
             batch_size = input_pl.get_shape()[0].value
 
-            pool0 = nn_layers.max_pool2d(input_pl, (2, 2), 'pool0', reuse=reuse)
-            conv1 = nn_layers.conv2d(pool0, input_channels, 32, (3, 3), 'conv1', is_training=self.is_training, reuse=reuse)
-            conv2 = nn_layers.conv2d(conv1, 32, 64, (3, 3), 'conv2', is_training=self.is_training, reuse=reuse)
-            pool1 = nn_layers.max_pool2d(conv2, (3, 3), 'pool1', reuse=reuse)
-            conv3 = nn_layers.conv2d(pool1, 64, 128, (3, 3), 'conv3', is_training=self.is_training, reuse=reuse)
-            pool2 = nn_layers.max_pool2d(conv3, (3, 3), 'pool2', reuse=reuse)
-            conv4 = nn_layers.conv2d(pool2, 128, 256, (3, 3), 'conv4', is_training=self.is_training, reuse=reuse)
-            pool3 = nn_layers.max_pool2d(conv4, (3, 3), 'pool3', reuse=reuse)
-            conv5 = nn_layers.conv2d(pool3, 256, 512, (3, 3), 'conv5', is_training=self.is_training, reuse=reuse)
-            pool4 = nn_layers.max_pool2d(conv5, (3, 3), 'pool4', reuse=reuse)
+            conv1 = nn_layers.conv2d(input_pl, input_channels, 32, (3, 3), 'conv1', is_training=self.is_training, reuse=reuse)
+            pool1 = nn_layers.max_pool2d(conv1, (3, 3), 'pool1', reuse=reuse)
+            conv2 = nn_layers.conv2d(pool1, 32, 64, (3, 3), 'conv2', is_training=self.is_training, reuse=reuse)
+            pool2 = nn_layers.max_pool2d(conv2, (3, 3), 'pool2', reuse=reuse)
+            conv3 = nn_layers.conv2d(pool2, 64, 128, (3, 3), 'conv3', is_training=self.is_training, reuse=reuse)
+            pool3 = nn_layers.max_pool2d(conv3, (3, 3), 'pool3', reuse=reuse)
+            conv4 = nn_layers.conv2d(pool3, 128, 256, (3, 3), 'conv4', is_training=self.is_training, reuse=reuse)
+            pool4 = nn_layers.max_pool2d(conv4, (3, 3), 'pool4', reuse=reuse)
+            conv5 = nn_layers.conv2d(pool4, 256, 512, (3, 3), 'conv5', is_training=self.is_training, reuse=reuse)
+            pool5 = nn_layers.max_pool2d(conv5, (3, 3), 'pool5', reuse=reuse)
             # conv6 = nn_layers.conv2d(pool4, 256, 512, (1, 1), 'conv_6', is_training=self.is_training, reuse=reuse)
             # conv7 = nn_layers.conv2d(conv6, 512, 1024, (1, 1), 'conv_7', is_training=self.is_training, reuse=reuse)
-            convnet = tf.reshape(pool4, [batch_size, -1])
+            convnet = tf.reshape(pool5, [batch_size, -1])
             input_channels = convnet.get_shape()[-1].value
             fc1 = nn_layers.fc(convnet, input_channels, 256, 'fc1', is_training=self.is_training, reuse=reuse)
             fc2 = nn_layers.fc(fc1, 256, 128, 'fc2', is_training=self.is_training, reuse=reuse)
             if self.use_softmax:
-                 self.logits = nn_layers.fc(fc2, 128, 2, 'predicted_y', is_training=self.is_training, activation_fn=None,
+                 self.logits = nn_layers.fc(fc2, 128, self.num_classes, 'predicted_y', is_training=self.is_training, activation_fn=None,
                                             batch_norm=False, reuse=reuse)
                  self.pred = tf.nn.softmax(self.logits, name='softmax')
             else:
@@ -56,7 +57,7 @@ class CNN(Model):
         """ pred: B*NUM_CLASSES,
             label: B, """
         reg_variables = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
-        l2_reg = 0.000
+        l2_reg = 1
         for var in reg_variables:
             l2_reg += self.hp['BETA_REG'] * tf.nn.l2_loss(var)
         if self.use_softmax:

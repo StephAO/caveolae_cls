@@ -79,7 +79,7 @@ class Train:
             self.decay_step,  # Decay step.
             self.decay_rate,  # Decay rate.
             staircase=True)
-        learning_rate = tf.maximum(learning_rate, self.base_learning_rate * 0.001)  # CLIP THE LEARNING RATE!
+        learning_rate = tf.maximum(learning_rate, self.base_learning_rate * 0.00001)  # CLIP THE LEARNING RATE!
         return learning_rate # self.base_learning_rate # TODO fix this
 
     def get_bn_decay(self, batch):
@@ -186,10 +186,11 @@ class Train:
 
             # print "Initialization evaluation"
             # self.eval_one_epoch(sess, ops, -1)
-            cross_val_results = np.zeros([3])
+            cross_val_results = np.zeros([len(self.model.data_handler.groups), 3])
             biological_results = np.zeros([2])
 
-            for val_set in xrange(self.model.data_handler.num_groups):
+            for val_set_idx, val_set in enumerate(self.model.data_handler.groups):
+                sess.run(init, {self.model.is_training: True})
                 val_metrics = np.zeros([self.max_epoch, 3])
                 for epoch in range(self.max_epoch):
                     print '-' * 10 + 'Validation Set: %02d Epoch: %02d ' % (val_set + 1, epoch + 1) + '-' * 10
@@ -197,28 +198,31 @@ class Train:
                     self.train_one_epoch(sess, ops, epoch, val_set)
                     val_metrics[epoch] = self.eval_one_epoch(sess, ops, epoch, val_set)
                     # If accuracy has gotten worse each of the last 3 epochs, exit
-                    if epoch >= 3 and \
-                       val_metrics[epoch][0] < val_metrics[epoch - 1][0] < val_metrics[epoch - 2][0] and \
-                       val_metrics[epoch - 2][0] < val_metrics[epoch - 3][0] < val_metrics[epoch - 4][0]:
-                        break
+                    # if epoch >= 3 and \
+                    #    val_metrics[epoch][0] < val_metrics[epoch - 1][0] < val_metrics[epoch - 2][0] and \
+                    #    val_metrics[epoch - 2][0] < val_metrics[epoch - 3][0] < val_metrics[epoch - 4][0]:
+                    #     break
 
                     # Save the variables to disk.
-                    if epoch % 5 == 0 and epoch != 0:
+                    if (epoch + 1) % 5 == 0:
+                        test_metrics = self.eval_one_epoch(sess, ops, epoch, test=True)
+                        # print "Ratio of positive in PC3: %f" % _biological_result[0]
+                        # print "Ratio of positives in PC3PTRF %f" % _biological_result[1]
                         self.model.save(sess, self.model_save_path, global_step=step)
                         global_step_saver.save(sess, os.path.join(self.step_save_path, "step"), global_step=step)
 
-                cross_val_results += val_metrics[np.argmax(val_metrics[:,0], axis=0)]
-                biological_results += self.test_biology(sess, ops, epoch)
+                cross_val_results[val_set_idx] = val_metrics[np.argmax(val_metrics[:,0], axis=0)]
+                # biological_results += self.test_biology(sess, ops, epoch)
 
-            cross_val_results /= float(self.model.data_handler.num_groups)
+            # cross_val_results /= float(self.model.data_handler.num_groups)
             biological_results /= float(self.model.data_handler.num_groups)
             print "-" * 25
             print "----- FINAL RESULTS -----"
-            print "Accuracy: %f" % cross_val_results[0]
-            print "Sensitivity: %f" % cross_val_results[1]
-            print "Specificity: %f" % cross_val_results[2]
-            print "Ratio of positive in PC3: %f" % biological_results[0]
-            print "Ratio of positives in PC3PTRF %f"  % biological_results[1]
+            print "Accuracy: mean %f, median %f, stddev %f" % (np.mean(cross_val_results[:, 0]), np.median(cross_val_results[:, 0]), np.std(cross_val_results[:, 0]))
+            print "Sensitivity: mean %f, median %f, stddev %f" % (np.mean(cross_val_results[:, 1]), np.median(cross_val_results[:, 1]), np.std(cross_val_results[:, 1]))
+            print "Specificity: mean %f, median %f, stddev %f" % (np.mean(cross_val_results[:, 2]), np.median(cross_val_results[:, 2]), np.std(cross_val_results[:, 2]))
+            # print "Ratio of positive in PC3: %f" % biological_results[0]
+            # print "Ratio of positives in PC3PTRF %f"  % biological_results[1]
 
         pickle.dump([vars(self.flags), self.model.hp, self.metrics], open(self.data_fn, "wb"))
 
@@ -238,6 +242,8 @@ class Train:
                 # print pred_val
                 pred_val = np.argmax(pred_val, axis=1)
                 labels = np.argmax(labels, axis=1)
+                # pred_val = 1 - np.minimum(np.argmax(pred_val, axis=1), 1)
+                # labels = 1 - np.minimum(np.argmax(labels, axis=1), 1)
             else:
                 np.rint(pred_val)
             pred_val = pred_val.flatten()
@@ -248,11 +254,14 @@ class Train:
         self.update_metrics(loss, accuracy, precision, sensitivity, specificity, f1, training=True)
         return np.array([accuracy, sensitivity, specificity])
 
-    def eval_one_epoch(self, sess, ops, epoch, val_set):
+    def eval_one_epoch(self, sess, ops, epoch, val_set=None, test=False):
         """ ops: dict mapping from string to tf ops """
         is_training = False
 
-        for data, labels in self.model.get_batch(use='val', val_set=val_set):
+        if test:
+            print "--- TEST ---"
+
+        for data, labels in self.model.get_batch(use='test' if test else 'val', val_set=val_set):
             feed_dict = {self.model.input_pl: data,
                          self.model.is_training: is_training,
                          self.model.label_pl: labels}
@@ -262,6 +271,8 @@ class Train:
                 # print pred_val
                 pred_val = np.argmax(pred_val, axis=1)
                 labels = np.argmax(labels, axis=1)
+                # pred_val = 1 - np.minimum(np.argmax(pred_val, axis=1), 1)
+                # labels = 1 - np.minimum(np.argmax(labels, axis=1), 1)
             else:
                 np.rint(pred_val)
             pred_val = pred_val.flatten()
@@ -270,6 +281,8 @@ class Train:
 
         loss, accuracy, precision, sensitivity, specificity, f1,  val_loss = self.calculate_metrics()
         self.update_metrics(loss, accuracy, precision, sensitivity, specificity, f1, val_loss=val_loss, training=False)
+        if test:
+            print '------------'
         return np.array([accuracy, sensitivity, specificity])
 
     def test_biology(self, sess, ops, epoch):
@@ -296,7 +309,7 @@ class Train:
                 # calculate metrics
                 num_pos += np.count_nonzero(pred_val)
                 num_tot += len(pred_val)
-            print "Ratio of positives in %s cells: %f" % (cell_type, float(num_pos) / float(num_tot))
+            # print "Ratio of positives in %s cells: %f" % (cell_type, float(num_pos) / float(num_tot))
             ratio_of_positives[i] = float(num_pos) / float(num_tot)
 
         return ratio_of_positives

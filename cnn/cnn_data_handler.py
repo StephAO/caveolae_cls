@@ -6,10 +6,11 @@ from caveolae_cls.data_handler import DataHandler
 
 class CNNDataHandler(DataHandler):
 
-    def __init__(self, input_data_type, use_softmax=False):
+    def __init__(self, input_data_type, num_classes=2, use_softmax=False):
         self.input_data_type = input_data_type
         if input_data_type == "multiview" or input_data_type == "projection":
             self.data_key = 'Img3Ch'
+        self.num_classes = num_classes
         super(CNNDataHandler, self).__init__('Projs', use_softmax=use_softmax)
 
     def load_input_data(self, filename):
@@ -22,7 +23,29 @@ class CNNDataHandler(DataHandler):
         #     return None, None
         label = DataHandler.get_label_from_filename(filename)
         if self.use_softmax:
-            l = np.zeros([2])
+            l = np.zeros([self.num_classes])
+            # num_points = np.count_nonzero(data)
+            # if label == 1:
+            #     l[0] = 1
+            # elif num_points <= 5:
+            #     l[1] = 1
+            # elif num_points <= 10:
+            #     l[2] = 1
+            # elif num_points <= 15:
+            #     l[3] = 1
+            # elif num_points <= 20:
+            #     l[4] = 1
+            # elif num_points <= 25:
+            #     l[5] = 1
+            # elif num_points <= 30:
+            #     l[6] = 1
+            # elif num_points <= 50:
+            #     l[7] = 1
+            # elif num_points <= 100:
+            #     l[8] = 1
+            # else:
+            #     l[9] = 1
+
             l[label] = 1
             label = l
         return data, label
@@ -38,7 +61,7 @@ class CNNDataHandler(DataHandler):
         """
         self.batch_size = batch_shape[0]
         self.data = np.zeros(batch_shape)
-        self.labels = np.zeros([self.batch_size, 2] if self.use_softmax else self.batch_size)
+        self.labels = np.zeros([self.batch_size, self.num_classes] if self.use_softmax else self.batch_size)
 
         files = self.get_data_files(use=use, val_set=val_set, cell_type=cell_type)
         random_file_idxs = np.arange(len(files))
@@ -56,6 +79,8 @@ class CNNDataHandler(DataHandler):
                     print ""
             f = files[idx]
             d, l = self.load_input_data(f)
+            if d is None:
+                continue
             # if l == 0:
             #     if num_negatives >= int(max_ratio_n * self.batch_size):
             #         continue
