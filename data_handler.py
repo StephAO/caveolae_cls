@@ -32,7 +32,7 @@ class DataHandler:
     proj_dim = 512
     feature_shape = [32, 32, 32]
 
-    def __init__(self, input_type, use_softmax=True, xval=False, cell_division=True):
+    def __init__(self, input_type, use_softmax=True, xval=False, cell_division=False):
         self.batch_size = None
         self.data = None
         self.labels = None

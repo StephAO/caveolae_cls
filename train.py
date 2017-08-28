@@ -187,7 +187,7 @@ class Train:
             # print "Initialization evaluation"
             # self.eval_one_epoch(sess, ops, -1)
             cross_val_results = np.zeros([len(self.model.data_handler.groups), 3])
-            biological_results = np.zeros([2])
+            lowest_loss = float('inf')
 
             for val_set_idx, val_set in enumerate(self.model.data_handler.groups):
                 sess.run(init, {self.model.is_training: True})
@@ -204,7 +204,8 @@ class Train:
                     #     break
 
                     # Save the variables to disk.
-                    if (epoch + 1) % 5 == 0:
+                    if val_metrics[epoch][0] < lowest_loss:
+                        lowest_loss = val_metrics[epoch][0]
                         test_metrics = self.eval_one_epoch(sess, ops, epoch, test=True)
                         # print "Ratio of positive in PC3: %f" % _biological_result[0]
                         # print "Ratio of positives in PC3PTRF %f" % _biological_result[1]
@@ -215,12 +216,17 @@ class Train:
                 # biological_results += self.test_biology(sess, ops, epoch)
 
             # cross_val_results /= float(self.model.data_handler.num_groups)
-            biological_results /= float(self.model.data_handler.num_groups)
+
+            self.model.restore(sess, self.model_save_path)
+            most_recent_step_ckpt = tf.train.latest_checkpoint(self.step_save_path)
+            global_step_saver.restore(sess, os.path.join(most_recent_step_ckpt))
+            test_metrics = self.eval_one_epoch(sess, ops, epoch, test=True)
+
             print "-" * 25
             print "----- FINAL RESULTS -----"
-            print "Accuracy: mean %f, median %f, stddev %f" % (np.mean(cross_val_results[:, 0]), np.median(cross_val_results[:, 0]), np.std(cross_val_results[:, 0]))
-            print "Sensitivity: mean %f, median %f, stddev %f" % (np.mean(cross_val_results[:, 1]), np.median(cross_val_results[:, 1]), np.std(cross_val_results[:, 1]))
-            print "Specificity: mean %f, median %f, stddev %f" % (np.mean(cross_val_results[:, 2]), np.median(cross_val_results[:, 2]), np.std(cross_val_results[:, 2]))
+            print "Accuracy: mean %f, median %f, stddev %f" % (np.mean(cross_val_results[:, 1]), np.median(cross_val_results[:, 1]), np.std(cross_val_results[:, 1]))
+            print "Sensitivity: mean %f, median %f, stddev %f" % (np.mean(cross_val_results[:, 2]), np.median(cross_val_results[:, 2]), np.std(cross_val_results[:, 2]))
+            print "Specificity: mean %f, median %f, stddev %f" % (np.mean(cross_val_results[:, 3]), np.median(cross_val_results[:, 3]), np.std(cross_val_results[:, 3]))
             # print "Ratio of positive in PC3: %f" % biological_results[0]
             # print "Ratio of positives in PC3PTRF %f"  % biological_results[1]
 
@@ -283,7 +289,7 @@ class Train:
         self.update_metrics(loss, accuracy, precision, sensitivity, specificity, f1, val_loss=val_loss, training=False)
         if test:
             print '------------'
-        return np.array([accuracy, sensitivity, specificity])
+        return np.array([loss, accuracy, sensitivity, specificity])
 
     def test_biology(self, sess, ops, epoch):
         is_training = False

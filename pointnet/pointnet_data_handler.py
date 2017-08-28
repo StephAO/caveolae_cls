@@ -48,7 +48,7 @@ class PointNetDataHandler(DataHandler):
         return resized_pc
 
     @staticmethod
-    def jitter_point_cloud(data, sigma=0.5, clip=2):
+    def jitter_point_cloud(data, sigma=0.25, clip=1):
         """
         Randomly jitter points. jittering is per point.
         :param batch_data: BxNx3 array, original batch of point clouds
@@ -118,8 +118,9 @@ class PointNetDataHandler(DataHandler):
             i += 1
             if i >= self.batch_size:
                 # Augment batched point clouds by rotation and jittering
-                # self.data = PointNetDataHandler.rotate_point_cloud(self.data)
-                # self.data = PointNetDataHandler.jitter_point_cloud(self.data)
+                # if use == 'train':
+                #     self.data = PointNetDataHandler.rotate_point_cloud(self.data)
+                #     self.data = PointNetDataHandler.jitter_point_cloud(self.data)
                 # Yield batch
                 yield self.data, self.labels
                 i = 0
