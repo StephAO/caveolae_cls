@@ -191,7 +191,7 @@ class Train:
 
             for val_set_idx, val_set in enumerate(self.model.data_handler.groups):
                 sess.run(init, {self.model.is_training: True})
-                val_metrics = np.zeros([self.max_epoch, 3])
+                val_metrics = np.zeros([self.max_epoch, 4])
                 for epoch in range(self.max_epoch):
                     print '-' * 10 + 'Validation Set: %02d Epoch: %02d ' % (val_set + 1, epoch + 1) + '-' * 10
 
@@ -212,7 +212,7 @@ class Train:
                         self.model.save(sess, self.model_save_path, global_step=step)
                         global_step_saver.save(sess, os.path.join(self.step_save_path, "step"), global_step=step)
 
-                cross_val_results[val_set_idx] = val_metrics[np.argmax(val_metrics[:,0], axis=0)]
+                cross_val_results[val_set_idx] = val_metrics[np.argmax(val_metrics[:,1], axis=0)][1:]
                 # biological_results += self.test_biology(sess, ops, epoch)
 
             # cross_val_results /= float(self.model.data_handler.num_groups)

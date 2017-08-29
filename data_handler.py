@@ -42,7 +42,7 @@ class DataHandler:
 
         self.train_group = 0
         if self.cell_division:
-            self.groups = [1, 2, 3, 5, 6, 8, 9, 10]
+            self.groups = [1, 2, 3, 4, 5, 6, 8, 9, 10]
         else:
             self.groups = range(10)
         self.num_groups = len(self.groups)
