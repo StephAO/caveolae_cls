@@ -44,6 +44,7 @@ class CNN(Model):
             input_channels = convnet.get_shape()[-1].value
             fc1 = nn_layers.fc(convnet, input_channels, 256, 'fc1', is_training=self.is_training, reuse=reuse)
             fc2 = nn_layers.fc(fc1, 256, 128, 'fc2', is_training=self.is_training, reuse=reuse)
+            self.features = fc2
             if self.use_softmax:
                  self.logits = nn_layers.fc(fc2, 128, self.num_classes, 'predicted_y', is_training=self.is_training, activation_fn=None,
                                             batch_norm=False, reuse=reuse)

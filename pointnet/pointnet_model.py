@@ -101,6 +101,7 @@ class PointNet(Model):
             #                         layer_name='dp2')
             # fc3 = nn_layers.fc(fc2, 256, 64, batch_norm=True, is_training=self.is_training,
             #                    layer_name='fc3', batch_norm_decay=bn_decay)
+            self.features = fc2
             if self.use_softmax:
                 self.logits = nn_layers.fc(fc2, 256, 2, 'predicted_y', is_training=self.is_training, activation_fn=None,
                                             batch_norm=False)

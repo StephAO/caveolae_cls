@@ -215,7 +215,9 @@ class Train:
                 cross_val_results[val_set_idx] = val_metrics[np.argmax(val_metrics[:,1], axis=0)][1:]
                 # biological_results += self.test_biology(sess, ops, epoch)
 
-            # cross_val_results /= float(self.model.data_handler.num_groups)
+                # cross_val_results /= float(self.model.data_handler.num_groups)
+                self.eval_one_epoch(sess, ops, epoch, val_set, save_features=True)
+                break
 
             self.model.restore(sess, self.model_save_path)
             most_recent_step_ckpt = tf.train.latest_checkpoint(self.step_save_path)
@@ -260,18 +262,35 @@ class Train:
         self.update_metrics(loss, accuracy, precision, sensitivity, specificity, f1, training=True)
         return np.array([accuracy, sensitivity, specificity])
 
-    def eval_one_epoch(self, sess, ops, epoch, val_set=None, test=False):
+    def eval_one_epoch(self, sess, ops, epoch, val_set=None, test=False, save_features=False):
         """ ops: dict mapping from string to tf ops """
         is_training = False
 
         if test:
             print "--- TEST ---"
 
-        for data, labels in self.model.get_batch(use='test' if test else 'val', val_set=val_set):
+        use_ = 'test' if test else 'val'
+
+        if save_features:
+            use_ = 'all_agg'
+            pos_features = []
+            neg_features = []
+
+        for data, labels in self.model.get_batch(use=use_, val_set=val_set):
             feed_dict = {self.model.input_pl: data,
                          self.model.is_training: is_training,
                          self.model.label_pl: labels}
-            loss, val_loss, pred_val = sess.run([self.model.loss, self.model.val_loss, self.model.pred], feed_dict=feed_dict)
+            if save_features:
+                fs, loss, val_loss, pred_val = sess.run([self.model.features, self.model.loss, self.model.val_loss,
+                                                         self.model.pred], feed_dict=feed_dict)
+
+                for i in xrange(len(fs)):
+                    if labels[i][0] == 1:
+                        neg_features.append(fs[i])
+                    else:
+                        pos_features.append(fs[i])
+            else:
+                loss, val_loss, pred_val = sess.run([self.model.loss, self.model.val_loss, self.model.pred], feed_dict=feed_dict)
 
             if self.model.use_softmax:
                 # print pred_val
@@ -282,8 +301,14 @@ class Train:
             else:
                 np.rint(pred_val)
             pred_val = pred_val.flatten()
+
             # calculate metrics
             self.update_scores(loss, labels, pred_val, val_loss=val_loss)
+        if save_features:
+            print len(neg_features)
+            pickle.dump(neg_features, open(os.path.join(self.data_dir, "pn_neg_features.p"), 'wb'))
+            print len(pos_features)
+            pickle.dump(pos_features, open(os.path.join(self.data_dir, "pn_pos_features.p"), 'wb'))
 
         loss, accuracy, precision, sensitivity, specificity, f1,  val_loss = self.calculate_metrics()
         self.update_metrics(loss, accuracy, precision, sensitivity, specificity, f1, val_loss=val_loss, training=False)

@@ -32,12 +32,13 @@ class DataHandler:
     proj_dim = 512
     feature_shape = [32, 32, 32]
 
-    def __init__(self, input_type, use_softmax=True, xval=False, cell_division=False):
+    def __init__(self, input_type, use_softmax=True, xval=False, cell_division=True):
         self.batch_size = None
         self.data = None
         self.labels = None
         self.use_softmax = use_softmax
         self.cell_division = cell_division
+        print "------", xval
         self.xval = xval
 
         self.train_group = 0
@@ -106,6 +107,7 @@ class DataHandler:
                     recursive_dict_filler(self.inst, ['test', i])
                     recursive_dict_filler(self.inst, ['val', i])
                     recursive_dict_filler(self.inst, ['train', i])
+                    recursive_dict_filler(self.inst, ['all_agg', i])
                     for cell in [1, 2, 3, 4, 5, 6, 8, 9, 10]:
                         if self.cell_division:
                             if cell == 1:
@@ -114,6 +116,7 @@ class DataHandler:
                                 self.inst['val'][i] += self.inst['all'][cell][i][:]
                             else:
                                 self.inst['train'][i] += self.inst['all'][cell][i][:]
+                            self.inst['all_agg'][i] += self.inst['all'][cell][i][:]
                         else:
                             test_idx = (12 if cell == 1 else 11)
                             # print test_idx
@@ -121,6 +124,7 @@ class DataHandler:
                             self.inst['test'][i] += self.inst['all'][cell][i][:test_idx]
                             self.inst['val'][i] += self.inst['all'][cell][i][test_idx:val_idx]
                             self.inst['train'][i] += self.inst['all'][cell][i][val_idx:]
+                            self.inst['all_agg'][i] += self.inst['all'][cell][i][:]
 
                 print "Size of test set pos %d neg %d, size of val set pos %d, neg %d, size of train set pos %d, neg %d" \
                        % (len(self.inst['test'][1]), len(self.inst['test'][0]), len(self.inst['val'][1]), len(self.inst['val'][0]), len(self.inst['train'][1]), len(self.inst['train'][0]))
